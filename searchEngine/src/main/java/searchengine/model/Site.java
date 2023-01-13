@@ -14,6 +14,11 @@ import java.util.Date;
 @Entity
 public class Site {
 
+    public Site(String url, String name) {
+        this.url = url;
+        this.name = name;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -39,4 +44,8 @@ public class Site {
     @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String name;
 
+    public void setStatus(StatusType status) {
+        this.status = status;
+        this.setStatusTime(new Date());
+    }
 }

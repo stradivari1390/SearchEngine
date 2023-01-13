@@ -1,64 +1,68 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import searchengine.config.Site;
-import searchengine.config.SitesList;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.model.Site;
+import searchengine.repository.*;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
 
-    private final Random random = new Random();
-    private final SitesList sites;
+    @Autowired
+    private LemmaRepository lemmaRepository;
+    @Autowired
+    private PageRepository pageRepository;
+    @Autowired
+    private SiteRepository siteRepository;
 
     @Override
     public StatisticsResponse getStatistics() {
-        String[] statuses = { "INDEXED", "FAILED", "INDEXING" };
-        String[] errors = {
-                "Ошибка индексации: главная страница сайта не доступна",
-                "Ошибка индексации: сайт не доступен",
-                ""
-        };
+        StatisticsData statistic = new StatisticsData();
 
-        TotalStatistics total = new TotalStatistics();
-        total.setSites(sites.getSites().size());
-        total.setIndexing(true);
+        AtomicInteger allLemmas = new AtomicInteger();
+        AtomicInteger allPages = new AtomicInteger();
+        AtomicInteger allSites = new AtomicInteger();
 
-        List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        List<Site> sitesList = sites.getSites();
-        for(int i = 0; i < sitesList.size(); i++) {
-            Site site = sitesList.get(i);
-            DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(site.getName());
-            item.setUrl(site.getUrl());
-            int pages = random.nextInt(1_000);
-            int lemmas = pages * random.nextInt(1_000);
-            item.setPages(pages);
-            item.setLemmas(lemmas);
-            item.setStatus(statuses[i % 3]);
-            item.setError(errors[i % 3]);
-            item.setStatusTime(System.currentTimeMillis() -
-                    (random.nextInt(10_000)));
-            total.setPages(total.getPages() + pages);
-            total.setLemmas(total.getLemmas() + lemmas);
-            detailed.add(item);
+        List<Site> siteList = siteRepository.findAll();
+
+        if (siteList.size() == 0) {
+            return new StatisticsResponse();
         }
 
-        StatisticsResponse response = new StatisticsResponse();
-        StatisticsData data = new StatisticsData();
-        data.setTotal(total);
-        data.setDetailed(detailed);
-        response.setStatistics(data);
-        response.setResult(true);
-        return response;
+        siteList.forEach(site -> {
+
+            int pages = pageRepository.countBySite(site);
+            int lemmas = lemmaRepository.countBySite(site);
+
+            statistic.addDetailed(new DetailedStatisticsItem(site, pages, lemmas));
+
+            allPages.updateAndGet(value -> value + pages);
+            allLemmas.updateAndGet(value -> value + lemmas);
+            allSites.getAndIncrement();
+        });
+
+        TotalStatistics total = new TotalStatistics();
+        total.setIndexing(true);
+        total.setLemmas(allLemmas.get());
+        total.setPages(allPages.get());
+        total.setSites(allSites.get());
+
+        statistic.setTotal(total);
+
+        StatisticsResponse statistics = new StatisticsResponse();
+
+        statistics.setResult(true);
+        statistics.setStatisticsData(statistic);
+
+        return statistics;
     }
 }
