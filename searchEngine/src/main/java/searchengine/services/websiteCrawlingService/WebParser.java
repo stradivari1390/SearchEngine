@@ -122,6 +122,8 @@ public class WebParser extends RecursiveTask<Integer> {
         if (page == null) {
             isNewPage = true;
             page = new Page();
+        } else if (page.getCode() >= 400) {
+            isNewPage = true;
         }
 
         page.setCode(response.statusCode());

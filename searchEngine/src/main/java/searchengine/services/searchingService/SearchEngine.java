@@ -32,7 +32,15 @@ public class SearchEngine {
     @Autowired
     private LemmaRepository lemmaRepository;
 
-    public SearchEngine() {}
+    public SearchEngine(SiteRepository siteRepository, PageRepository pageRepository,
+                        LemmaRepository lemmaRepository, IndexRepository indexRepository,
+                        Lemmatisator lemmatisator) {
+        this.siteRepository = siteRepository;
+        this.pageRepository = pageRepository;
+        this.lemmaRepository = lemmaRepository;
+        this.indexRepository = indexRepository;
+        this.lemmatisator = lemmatisator;
+    }
 
     public Search search(String query, Site site) {
 
@@ -128,7 +136,7 @@ public class SearchEngine {
                 }
 
                 if (count > maxSnippet.get()) {
-                    snippet.set(text);
+                    snippet.set("..." + text.substring(text.indexOf("<b>") - 50, text.indexOf("</b>") + 50) + "...");
                     maxSnippet.set(count);
                     Done.set(true);
                 }
@@ -138,7 +146,9 @@ public class SearchEngine {
                 searchResult.setTitle(document.title());
                 searchResult.setRelevance(indexRank.getRRel());
                 searchResult.setSnippet(snippet.get());
-                searchResult.setUri(indexRank.getPage().getPath().replace(site.getUrl(), ""));
+                searchResult.setUri(Objects.equals(indexRank.getPage().getPath(), site.getUrl()) ?
+                        site.getUrl() :
+                        indexRank.getPage().getPath().replace(site.getUrl(), ""));
                 searchResult.setSiteUrl(site.getUrl());
                 searchResult.setSiteName(site.getName());
 
