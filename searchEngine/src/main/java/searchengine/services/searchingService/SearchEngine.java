@@ -3,7 +3,6 @@ package searchengine.services.searchingService;
 import lombok.Data;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
@@ -13,24 +12,16 @@ import searchengine.repository.SiteRepository;
 import searchengine.services.lemmatisationService.Lemmatisator;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 @Data
-public class SearchEngine {
+public final class SearchEngine {
 
-    @Autowired
-    private Lemmatisator lemmatisator;
-    @Autowired
-    private IndexRepository indexRepository;
-    @Autowired
-    private PageRepository pageRepository;
-    @Autowired
-    private SiteRepository siteRepository;
-    @Autowired
-    private LemmaRepository lemmaRepository;
+    private final Lemmatisator lemmatisator;
+    private final IndexRepository indexRepository;
+    private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
+    private final LemmaRepository lemmaRepository;
 
     public SearchEngine(SiteRepository siteRepository, PageRepository pageRepository,
                         LemmaRepository lemmaRepository, IndexRepository indexRepository,
@@ -43,115 +34,86 @@ public class SearchEngine {
     }
 
     public Search search(String query, Site site) {
-
-        SortedSet<SearchResult> searchResults = new TreeSet<>();
-
+        Set<SearchResult> searchResults;
         if (site == null) {
+            searchResults = new TreeSet<>();
             siteRepository.findAll().forEach(s -> searchResults.addAll(getSearchesBySite(s, query)));
         } else {
-            searchResults.addAll(getSearchesBySite(site, query));
+            searchResults = getSearchesBySite(site, query);
         }
-
         Search search = new Search();
-
         search.setCount(searchResults.size());
         search.setResult(true);
         search.setSearchResultSet(searchResults);
-
         return search;
     }
 
     private Set<SearchResult> getSearchesBySite(Site site, String query) {
-        System.out.println(site.getUrl());
         List<Page> pageList = pageRepository.findAllBySite(site);
         return addSearchQuery(site, query, pageList);
     }
 
     private Set<SearchResult> addSearchQuery(Site site, String query, List<Page> pageList) {
-
         Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
-
         Set<Lemma> lemmaSet = new HashSet<>();
-
-        for(String lemma : lemmas.keySet()) {
-            lemmaSet.add(lemmaRepository.findLemmaByLemmaAndSite(lemma, site));
-        }
-
+        lemmas.keySet().forEach(lemma -> lemmaSet.add(lemmaRepository.findLemmaByLemmaAndSite(lemma, site)));
         List<IndexRank> indexRanks = getIndexRanks(lemmaSet, pageList);
-
         return getSearchResults(indexRanks, lemmaSet, site);
     }
 
     private List<IndexRank> getIndexRanks(Set<Lemma> lemmaSet, List<Page> pageList) {
-
         List<IndexRank> indexRankList = new ArrayList<>();
-
-        lemmaSet.forEach(lemma -> {
-
-            for (Page page : pageList) {
-
+        pageList.forEach(page -> {
+            Map<String, Float> pageLemmas = new HashMap<>();
+            lemmaSet.forEach(lemma -> {
                 Index index = indexRepository.findByLemmaAndPage(lemma, page);
                 if (index != null) {
-
-                    IndexRank indexRank = new IndexRank();
-
-                    indexRank.setPage(page);
-                    indexRank.addRank(lemma.getLemma(), index.getRank());
-                    indexRank.setrAbs();
-
-                    indexRankList.add(indexRank);
+                    pageLemmas.put(lemma.getLemma(), index.getRank());
                 }
+            });
+            if (!pageLemmas.isEmpty()) {
+                IndexRank indexRank = new IndexRank();
+                indexRank.setPage(page);
+                indexRank.setRankMap(pageLemmas);
+                indexRank.setrAbs();
+                indexRank.setrRel();
+                indexRankList.add(indexRank);
             }
         });
-        indexRankList.forEach(IndexRank::setrRel);
         return indexRankList;
     }
 
     private SortedSet<SearchResult> getSearchResults(List<IndexRank> indexRanks, Set<Lemma> lemmaSet, Site site) {
-
         SortedSet<SearchResult> searchResults = new TreeSet<>();
-
         indexRanks.forEach(indexRank -> {
-
             Document document = Jsoup.parse(indexRank.getPage().getContent());
-
-            AtomicReference<String> snippet = new AtomicReference<>("");
-            AtomicInteger maxSnippet = new AtomicInteger();
-            SearchResult searchResult = new SearchResult();
-            AtomicBoolean Done = new AtomicBoolean();
-
-            document.getAllElements().forEach(pageElement -> {
-
-                String text = pageElement.text().toLowerCase();
-                int count = 0;
-                for (Lemma lemma : lemmaSet) {
-                    String lemmaString = lemma.getLemma();
-                    if (text.contains(lemmaString)) {
-                        count++;
-                        text = text.replaceAll("(?i)" + lemmaString,
-                                "<b>" + lemmaString + "</b>");
-                    } else {
-                        lemmaSet.remove(lemma);
-                    }
-                }
-
-                if (count > maxSnippet.get()) {
-                    snippet.set("..." + text.substring(text.indexOf("<b>") - 50, text.indexOf("</b>") + 50) + "...");
-                    maxSnippet.set(count);
-                    Done.set(true);
-                }
-            });
-
-            if (Done.get()) {
+            String text = document.text().toLowerCase();
+            int count = 0;
+            String snippet = "";
+            Set<Lemma> lemmaToRemove = new HashSet<>();
+            for (Lemma lemma : lemmaSet) {
+                String lemmaString = lemma.getLemma();
+                if (text.contains(lemmaString)) {
+                    count++;
+                    text = text.replaceAll("(?i)" + lemmaString, "<b>" + lemmaString + "</b>");
+                    int start = text.indexOf("<b>") - 50;
+                    int end = text.indexOf("</b>") + 50;
+                    if (start < 0) start = 0;
+                    if (end > text.length()) end = text.length() - 1;
+                    snippet = "..." + text.substring(start, end) + "...";
+                } else lemmaToRemove.add(lemma);
+            }
+            lemmaSet.removeAll(lemmaToRemove);
+            if (count > 0) {
+                SearchResult searchResult = new SearchResult();
                 searchResult.setTitle(document.title());
                 searchResult.setRelevance(indexRank.getRRel());
-                searchResult.setSnippet(snippet.get());
+                searchResult.setSnippet(snippet);
                 searchResult.setUri(Objects.equals(indexRank.getPage().getPath(), site.getUrl()) ?
                         site.getUrl() :
                         indexRank.getPage().getPath().replace(site.getUrl(), ""));
                 searchResult.setSiteUrl(site.getUrl());
                 searchResult.setSiteName(site.getName());
-
                 searchResults.add(searchResult);
             }
         });
