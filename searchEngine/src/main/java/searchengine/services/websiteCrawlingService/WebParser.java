@@ -5,10 +5,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 import searchengine.config.Config;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
@@ -22,36 +18,23 @@ import java.util.Map;
 import java.util.concurrent.RecursiveTask;
 import java.util.regex.Pattern;
 
-@Component
-@Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class WebParser extends RecursiveTask<Integer> {
 
-    @Autowired
-    private IndexRepository indexRepository;
-    @Autowired
-    private PageRepository pageRepository;
-    @Autowired
-    private SiteRepository siteRepository;
-    @Autowired
-    private LemmaRepository lemmaRepository;
-    @Autowired
-    private Config config;
+    private final Site site;
+    private final SitemapNode node;
+    private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
+    private final Config config;
+    private final Lemmatisator lemmatisator;
     private int pageCount;
-    private Site site;
-    private SitemapNode node;
-    @Autowired
-    private Lemmatisator lemmatisator;
-
-    public WebParser() {
-        pageCount = 0;
-    }
 
     public WebParser(Site site, SitemapNode sitemapNode,
                      SiteRepository siteRepository, PageRepository pageRepository,
                      LemmaRepository lemmaRepository, IndexRepository indexRepository,
                      Config config, Lemmatisator lemmatisator) {
-        this();
-        pageCount++;
+        pageCount = 0;
         this.site = site;
         this.node = sitemapNode;
         this.siteRepository = siteRepository;
@@ -64,7 +47,6 @@ public class WebParser extends RecursiveTask<Integer> {
 
     @Override
     protected Integer compute() {
-
         try {
             Connection.Response response = Jsoup.connect(node.getUrl())
                     .ignoreHttpErrors(true)
@@ -74,34 +56,34 @@ public class WebParser extends RecursiveTask<Integer> {
 
             Document document = response.parse();
 
-            // ToDo: Try Thread.sleep(750);  ?  no difference.
-
             addPage(response, document);
-
-            Elements links = document.select("body").select("a");
-            for (Element link : links) {
-                String childUrl = link.absUrl("href");
-                if (isCorrectLink(childUrl)) {
-                    childUrl = childUrl.replaceAll("\\?.+", "");
-                    node.addChild(new SitemapNode(childUrl));
-                    pageCount++;
-                }
-            }
-
-            for (SitemapNode child : node.getChildren()) {
-                WebParser task = new WebParser(site, child,
-                        siteRepository, pageRepository, lemmaRepository, indexRepository,
-                        config, lemmatisator);
-                task.compute();
-            }
+            processLinks(document);
         } catch (IOException exception) {
-            site.setLastError("Остановка индексации");
+            site.setLastError("Indexing stopped");
             site.setStatus(StatusType.FAILED);
             siteRepository.save(site);
-//                 exception.printStackTrace();
             System.out.println(exception.getMessage());
         }
         return pageCount;
+    }
+
+    private void processLinks(Document document) {
+        Elements links = document.select("body").select("a");
+        for (Element link : links) {
+            String childUrl = link.absUrl("href");
+            if (isCorrectLink(childUrl)) {
+                childUrl = childUrl.replaceAll("\\?.+", "");
+                node.addChild(new SitemapNode(childUrl));
+                pageCount++;
+            }
+        }
+
+        for (SitemapNode child : node.getChildren()) {
+            WebParser task = new WebParser(site, child,
+                    siteRepository, pageRepository, lemmaRepository, indexRepository,
+                    config, lemmatisator);
+            task.compute();
+        }
     }
 
     public void addPage() throws IOException {
