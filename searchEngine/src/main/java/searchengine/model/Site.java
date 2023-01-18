@@ -29,7 +29,7 @@ public class Site {
     @Column(name = "status", nullable = false, columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')")
     private StatusType status;
 
-    @Temporal(TemporalType.DATE)
+    @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "status_time", nullable = false)
     private Date statusTime;
 

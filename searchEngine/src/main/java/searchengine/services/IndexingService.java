@@ -54,10 +54,6 @@ public class IndexingService {
 
     public void indexing() {
 
-        threadList = new ArrayList<>();
-
-        forkJoinPoolList = new ArrayList<>();
-
         clearData();
 
         List<WebParser> webParserList = new ArrayList<>();
@@ -120,6 +116,8 @@ public class IndexingService {
 
         if (isIndexing.get()) return true;
 
+        forkJoinPoolList.clear();
+        threadList.clear();
         new Thread(this::indexing).start();
 
         return false;
@@ -136,8 +134,6 @@ public class IndexingService {
         if (!isIndexing.get()) {
             return false;
         }
-        threadList.forEach(Thread::interrupt);
-        forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
                 site.setLastError("Индексация остановлена пользователем");
@@ -145,8 +141,12 @@ public class IndexingService {
                 siteRepository.save(site);
             }
         });
+        threadList.forEach(Thread::interrupt);
+        forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
+
         forkJoinPoolList.clear();
         threadList.clear();
+
         return true;
     }
 
