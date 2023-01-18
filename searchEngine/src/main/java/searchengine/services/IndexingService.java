@@ -1,6 +1,9 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.jsoup.Connection;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.config.Config;
@@ -81,7 +84,7 @@ public class IndexingService {
 
             try {
 
-                ForkJoinPool forkJoinPool = new ForkJoinPool();  //ToDo add parallelism?
+                ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
                 forkJoinPoolList.add(forkJoinPool);
                 forkJoinPool.execute(webParser);
 
@@ -123,24 +126,18 @@ public class IndexingService {
     }
 
     public boolean stopIndexing() {
-
         System.out.println("Threads count: " + threadList.size());
-
         AtomicBoolean isIndexing = new AtomicBoolean(false);
-
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
                 isIndexing.set(true);
             }
         });
-
         if (!isIndexing.get()) {
             return false;
         }
-
-        forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);        //ToDo: finalize, doesnt work
-        threadList.forEach(Thread::interrupt);                      //ToDO: figure out, is order important?
-
+        threadList.forEach(Thread::interrupt);
+        forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
                 site.setLastError("Индексация остановлена пользователем");
@@ -148,15 +145,12 @@ public class IndexingService {
                 siteRepository.save(site);
             }
         });
-
         forkJoinPoolList.clear();
         threadList.clear();
-
         return true;
     }
 
     public boolean indexPage(String url) {
-
         List<searchengine.config.Site> siteList = initSiteList.getSites();
 
         for (searchengine.config.Site initSite : siteList) {
@@ -170,19 +164,27 @@ public class IndexingService {
                 site.setStatus(StatusType.INDEXING);
                 siteRepository.save(site);
 
-                WebParser webParser = new WebParser(site, new SitemapNode(url),
-                        siteRepository, pageRepository, lemmaRepository, indexRepository,
-                        config, lemmatisator);
                 try {
-                    webParser.addPage();
+                    Connection.Response response = Jsoup.connect(url)
+                            .ignoreHttpErrors(true)
+                            .userAgent(config.getUserAgent())
+                            .referrer(config.getReferrer())
+                            .execute();
+                    Document document = response.parse();
+
+                    WebParser webParser = new WebParser(site, new SitemapNode(url),
+                            siteRepository, pageRepository, lemmaRepository, indexRepository,
+                            config, lemmatisator);
+
+                    webParser.addPage(response, document);
+
+                    site.setStatus(StatusType.INDEXED);
+                    siteRepository.save(site);
+
+                    return true;
                 } catch (IOException e) {
                     return false;
                 }
-
-                site.setStatus(StatusType.INDEXED);
-                siteRepository.save(site);
-
-                return true;
             }
         }
         return false;

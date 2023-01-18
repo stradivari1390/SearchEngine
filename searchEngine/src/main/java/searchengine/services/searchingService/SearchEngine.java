@@ -3,6 +3,8 @@ package searchengine.services.searchingService;
 import lombok.Data;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
@@ -14,6 +16,7 @@ import searchengine.services.lemmatisationService.Lemmatisator;
 import java.util.*;
 
 @Component
+@Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 @Data
 public final class SearchEngine {
 

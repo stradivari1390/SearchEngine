@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.*;
 
 @Component
-@Scope(scopeName = ConfigurableBeanFactory.SCOPE_SINGLETON)
+@Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class Lemmatisator {
 
     private final String[] redundantForms = {"ПРЕДЛ", "СОЮЗ", "МЕЖД", "ВВОДН", "ЧАСТ", "МС", "CONJ", "PART"};
@@ -79,7 +79,7 @@ public class Lemmatisator {
             List<String> normalForms = null;
 
             if(checkLanguage(word).equals("Russian") && isCorrectRussianWord(word)) {
-               normalForms = russianMorph.getNormalForms(word);
+                normalForms = russianMorph.getNormalForms(word);
             }
 
             if(checkLanguage(word).equals("English") && isCorrectEnglishWord(word)) {
@@ -100,32 +100,4 @@ public class Lemmatisator {
         }
         return lemmas;
     }
-
-//    public Set<String> getLemmaSet(String text) {
-//
-//        String[] words = text.toLowerCase().split("[^a-zа-я]+");
-//        Set<String> lemmaSet = new HashSet<>();
-//        for (String word : words) {
-//
-//            if (word.isBlank()) {
-//                continue;
-//            }
-//            List<String> normalForms = null;
-//
-//            if(checkLanguage(word).equals("Russian") && isCorrectRussianWord(word)) {
-//                normalForms = russianMorph.getNormalForms(word);
-//            }
-//
-//            if(checkLanguage(word).equals("English") && isCorrectEnglishWord(word)) {
-//                normalForms = englishMorph.getNormalForms(word);
-//            }
-//
-//            if (normalForms == null) {
-//                continue;
-//            }
-//
-//            lemmaSet.addAll(normalForms);
-//        }
-//        return lemmaSet;
-//    }
 }

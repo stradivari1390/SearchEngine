@@ -1,0 +1,6 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Tue Jan 17 13:30:25 SGT 2023
+https\://repo.maven.apache.org/maven2/.lastUpdated=1673933425408
+https\://maven.pkg.github.com/skillbox-java/russianmorphology/.error=Could not transfer artifact org.apache.lucene.morphology\:morph\:pom\:1.5 from/to github (https\://maven.pkg.github.com/skillbox-java/russianmorphology)\: authentication failed for https\://maven.pkg.github.com/skillbox-java/russianmorphology/org/apache/lucene/morphology/morph/1.5/morph-1.5.pom, status\: 401 Unauthorized
+https\://repo.maven.apache.org/maven2/.error=
+@default-github-https\://maven.pkg.github.com/skillbox-java/russianmorphology/.lastUpdated=1671014454349

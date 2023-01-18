@@ -1,3 +1,7 @@
+/** This application makes use of the Lucene open-source library,
+ * which is subject to the Apache Software License 2.0.
+ * More information about Lucene can be found at http://lucene.apache.org.*/
+
 package searchengine;
 
 import org.springframework.boot.SpringApplication;

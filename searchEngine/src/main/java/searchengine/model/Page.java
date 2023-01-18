@@ -27,7 +27,7 @@ public class Page {
     private Site site;
 
     @ToString.Include
-    @Column(name = "path", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(255)")
     private String path;
 
     @Column(name = "code", nullable = false)
@@ -36,5 +36,4 @@ public class Page {
     @ToString.Include
     @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
-
 }

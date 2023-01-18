@@ -26,8 +26,8 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @Override
     public StatisticsResponse getStatistics() {
-        StatisticsData statistic = new StatisticsData();
 
+        StatisticsData statistic = new StatisticsData();
         AtomicInteger allLemmas = new AtomicInteger();
         AtomicInteger allPages = new AtomicInteger();
         AtomicInteger allSites = new AtomicInteger();
