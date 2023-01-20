@@ -1,6 +1,8 @@
 package searchengine.model;
 
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 
@@ -11,7 +13,7 @@ import javax.persistence.*;
 @EqualsAndHashCode
 @ToString(onlyExplicitlyIncluded = true)
 @Entity
-@Table(name = "Indexes")
+@Table(name = "`index`")
 public class Index {
 
     public Index(Lemma lemma, Page page, float rank) {
@@ -27,12 +29,14 @@ public class Index {
 
     @ToString.Include
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE, optional = false)
-    @JoinColumn(name = "lemma_id", nullable = false)
+    @JoinColumn(name = "lemma_id", nullable = false, foreignKey = @ForeignKey(name = "FK_index_lemma"))
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Lemma lemma;
 
     @ToString.Include
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE, optional = false)
-    @JoinColumn(name = "page_id", nullable = false)
+    @JoinColumn(name = "page_id", nullable = false, foreignKey = @ForeignKey(name = "FK_index_page"))
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Page page;
 
     @ToString.Include

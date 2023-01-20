@@ -1,5 +1,6 @@
 package searchengine.controllers;
 
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,14 +17,15 @@ import searchengine.services.searchingService.SearchingService;
 public class SearchingController {
 
     private final SearchingService searchingService;
+
     @Autowired
     private SiteRepository siteRepository;
+
+    private static final Logger logger = LogManager.getLogger(SearchingController.class);
 
     public SearchingController(SearchingService searchingService) {
         this.searchingService = searchingService;
     }
-
-    private static final Logger logger = LogManager.getLogger(SearchingController.class);
 
     @GetMapping(value = "/search")
     public ResponseEntity<?> search(@RequestParam(name = "query", required = false) String query,

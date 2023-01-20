@@ -33,7 +33,7 @@ public class WebParser extends RecursiveTask<Integer> {
                      SiteRepository siteRepository, PageRepository pageRepository,
                      LemmaRepository lemmaRepository, IndexRepository indexRepository,
                      Config config, Lemmatisator lemmatisator) {
-        pageCount = 0;
+        pageCount = 1;
         this.site = site;
         this.node = sitemapNode;
         this.siteRepository = siteRepository;

@@ -15,11 +15,11 @@ public class IndexingController {
 
     private final IndexingService indexingService;
 
+    private static final Logger logger = LogManager.getLogger(IndexingController.class);
+
     public IndexingController(IndexingService indexingService) {
         this.indexingService = indexingService;
     }
-
-    private static final Logger logger = LogManager.getLogger(IndexingController.class);
 
     @GetMapping("/startIndexing")
     public ResponseEntity<String> startIndexing() {

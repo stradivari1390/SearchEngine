@@ -4,6 +4,8 @@ import lombok.*;
 
 import javax.persistence.*;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -43,6 +45,12 @@ public class Site {
     @ToString.Include
     @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String name;
+
+    @OneToMany(mappedBy = "site", fetch = FetchType.LAZY)
+    private Set<Page> pages = new HashSet<>();
+
+    @OneToMany(mappedBy = "site", fetch = FetchType.LAZY)
+    private Set<Lemma> lemmas = new HashSet<>();
 
     public void setStatus(StatusType status) {
         this.status = status;

@@ -1,9 +1,13 @@
 package searchengine.model;
 
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.Index;
 import javax.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,7 +27,8 @@ public class Page {
     private int id;
 
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE, optional = false)
-    @JoinColumn(name = "site_id", nullable = false)
+    @JoinColumn(name = "site_id", nullable = false, foreignKey = @ForeignKey(name = "FK_page_site"))
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
     @ToString.Include
@@ -36,4 +41,7 @@ public class Page {
     @ToString.Include
     @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
+
+    @OneToMany(mappedBy = "page", fetch = FetchType.LAZY)
+    private Set<searchengine.model.Index> indices = new HashSet<>();
 }

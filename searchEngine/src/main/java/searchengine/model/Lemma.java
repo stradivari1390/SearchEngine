@@ -1,8 +1,12 @@
 package searchengine.model;
 
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,7 +29,8 @@ public class Lemma implements Comparable<Lemma>{
 
     @ToString.Include
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE, optional = false)
-    @JoinColumn(name = "site_id", nullable = false)
+    @JoinColumn(name = "site_id", nullable = false, foreignKey = @ForeignKey(name = "FK_lemma_site"))
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
     @ToString.Include
@@ -35,6 +40,9 @@ public class Lemma implements Comparable<Lemma>{
     @ToString.Include
     @Column(name = "frequency", nullable = false) //, columnDefinition = "integer default 1")  ToDo: figure out why doesnt work
     private int frequency = 1;
+
+    @OneToMany(mappedBy = "lemma", fetch = FetchType.LAZY)
+    private Set<Index> indices = new HashSet<>();
 
     @Override
     public int compareTo(Lemma o) {
