@@ -18,9 +18,7 @@ public class Application {
     public MappingJackson2HttpMessageConverter mappingJackson2HttpMessageConverter() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        MappingJackson2HttpMessageConverter converter =
-                new MappingJackson2HttpMessageConverter(mapper);
-        return converter;
+        return new MappingJackson2HttpMessageConverter(mapper);
     }
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);

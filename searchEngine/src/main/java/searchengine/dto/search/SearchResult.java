@@ -1,4 +1,4 @@
-package searchengine.services.searchingService;
+package searchengine.dto.search;
 
 import lombok.Data;
 
@@ -6,15 +6,10 @@ import lombok.Data;
 public class SearchResult implements Comparable<SearchResult> {
 
     private String siteUrl;
-
     private String siteName;
-
     private String uri;
-
     private String title;
-
     private String snippet;
-
     private float relevance;
 
     @Override

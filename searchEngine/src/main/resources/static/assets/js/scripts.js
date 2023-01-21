@@ -1144,7 +1144,7 @@ $.fn.clearForm = function(includeHidden) {
  * Clears the selected form elements.
  */
 $.fn.clearFields = $.fn.clearInputs = function(includeHidden) {
-    var re = /^(?:color|date|datetime|email|month|number|password|range|search|tel|text|time|url|week)$/i; // 'hidden' is not in this list
+    var re = /^(?:color|date|datetime|email|month|number|password|range|searchResponse|tel|text|time|url|week)$/i; // 'hidden' is not in this list
     return this.each(function() {
         var t = this.type, tag = this.tagName.toLowerCase();
         if (re.test(t) || tag == 'textarea') {
@@ -1524,8 +1524,8 @@ var API = function(){
                 }
             }
         },
-        search: {
-            address: '/search',
+        searchResponse: {
+            address: '/searchResponse',
             type: 'get',
             action: function(result, $this, data){
                 if (result.result){
@@ -1554,7 +1554,7 @@ var API = function(){
                     $searchResults.addClass('SearchResult_ACTIVE');
                     if (result.count > data.offset + result.data.length) {
                         $('.SearchResult-footer').removeClass('SearchResult-footer_hide')
-                        $('.SearchResult-footer button[data-send="search"]')
+                        $('.SearchResult-footer button[data-send="searchResponse"]')
                             .data('sendoffset', data.offset + result.data.length)
                             .data('searchquery', data.query)
                             .data('searchsite', data.site)
@@ -1743,7 +1743,7 @@ var API = function(){
                             var $page = $this.closest('.form').find('input[name="page"]');
                             data = {url: $page.val()};
                             break;
-                        case 'search':
+                        case 'searchResponse':
                             if ($this.data('sendtype')==='next') {
                                 data = {
                                     site: $this.data('searchsite'),

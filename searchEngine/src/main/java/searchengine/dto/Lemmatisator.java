@@ -1,4 +1,4 @@
-package searchengine.services.lemmatisationService;
+package searchengine.dto;
 
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
@@ -68,7 +68,7 @@ public class Lemmatisator {
 
     public Map<String, Integer> collectLemmasAndRanks(String text) {
 
-        String[] words = text.toLowerCase().split("[^a-zа-я]+");
+        String[] words = text.toLowerCase().split("[^a-zа-я-]+");
         HashMap<String, Integer> lemmas = new HashMap<>();
 
         for (String word : words) {

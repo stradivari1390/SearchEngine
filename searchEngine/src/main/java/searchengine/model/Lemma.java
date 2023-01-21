@@ -15,6 +15,9 @@ import java.util.Set;
 @EqualsAndHashCode
 @ToString(onlyExplicitlyIncluded = true)
 @Entity
+@Table(uniqueConstraints={
+        @UniqueConstraint(columnNames = {"lemma", "site_id"})
+})
 public class Lemma implements Comparable<Lemma>{
 
     public Lemma(Site site, String lemma) {

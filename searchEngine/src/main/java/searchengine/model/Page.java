@@ -10,7 +10,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @NoArgsConstructor
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Getter
 @Setter
 @EqualsAndHashCode
@@ -26,18 +26,22 @@ public class Page {
     @Column(name = "id", nullable = false)
     private int id;
 
+    @NonNull
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE, optional = false)
     @JoinColumn(name = "site_id", nullable = false, foreignKey = @ForeignKey(name = "FK_page_site"))
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
+    @NonNull
     @ToString.Include
     @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(255)")
     private String path;
 
+    @NonNull
     @Column(name = "code", nullable = false)
     private int code;
 
+    @NonNull
     @ToString.Include
     @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;

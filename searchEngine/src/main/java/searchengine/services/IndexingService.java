@@ -1,24 +1,25 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.configurationprocessor.json.JSONException;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
 import searchengine.model.Site;
 import searchengine.model.StatusType;
 import searchengine.repository.*;
-import searchengine.services.lemmatisationService.Lemmatisator;
-import searchengine.services.websiteCrawlingService.SitemapNode;
-import searchengine.services.websiteCrawlingService.WebParser;
+import searchengine.dto.Lemmatisator;
+import searchengine.dto.WebParser;
+import searchengine.responses.ErrorResponse;
+import searchengine.responses.IndexResponse;
+import searchengine.responses.Response;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -41,22 +42,32 @@ public class IndexingService {
     @Autowired
     Lemmatisator lemmatisator;
 
-    private List<Thread> threadList = new ArrayList<>();
-    private List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
+    private final List<Thread> threadList = new ArrayList<>();
+    private Thread startIndexingThread;
+    private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
+    private final List<WebParser> webParserList = new ArrayList<>();
+    static AtomicBoolean isIndexing = new AtomicBoolean();
 
     private void clearData() {
-
         indexRepository.deleteAll();
         lemmaRepository.deleteAll();
         pageRepository.deleteAll();
         siteRepository.deleteAll();
     }
 
-    public void indexing() {
+    public Response startIndexing() {
+        isIndexing.set(false);
+        siteRepository.findAll().forEach(site -> {
+            if (site.getStatus().equals(StatusType.INDEXING)) {
+                isIndexing.set(true);
+            }
+        });
+        if (isIndexing.get()) {
+            return new IndexResponse("startIndexing", true);
+        }
 
         clearData();
 
-        List<WebParser> webParserList = new ArrayList<>();
         List<searchengine.config.Site> siteList = initSiteList.getSites();
 
         for (searchengine.config.Site initSite : siteList) {
@@ -67,22 +78,18 @@ public class IndexingService {
             site.setStatus(StatusType.INDEXING);
             siteRepository.save(site);
 
-            SitemapNode sitemapRoot = new SitemapNode(initSiteUrl);
-
-            webParserList.add(new WebParser(site, sitemapRoot,
-                    siteRepository, pageRepository, lemmaRepository, indexRepository,
-                    config, lemmatisator));
+            webParserList.add(new WebParser(initSiteUrl, site, initSiteList, pageRepository,
+                    lemmaRepository, indexRepository, config, lemmatisator, new HashSet<>()));
         }
 
-        webParserList.forEach(webParser -> threadList.add(new Thread(() -> {
+        for (WebParser webParser : webParserList) {
 
             Site site = webParser.getSite();
 
-            try {
-
-                ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
+            Thread thread = new Thread(() -> {
+                ForkJoinPool forkJoinPool = new ForkJoinPool();
                 forkJoinPoolList.add(forkJoinPool);
-                forkJoinPool.execute(webParser);
+                forkJoinPool.invoke(webParser);
 
                 int count = webParser.join();
 
@@ -90,50 +97,32 @@ public class IndexingService {
                 siteRepository.save(site);
 
                 System.out.println("Site " + site.getName() + " indexed, page-count - " + count);
+            });
 
-            } catch (CancellationException ex) {
-                ex.printStackTrace();
-                site.setLastError("Indexing error: " + ex.getMessage());
-                site.setStatus(StatusType.FAILED);
-                siteRepository.save(site);
-            }
-        })));
-
-        threadList.forEach(Thread::start);
-
-        forkJoinPoolList.forEach(ForkJoinPool::shutdown);
-    }
-
-    public boolean startIndexing() {
-
-        AtomicBoolean isIndexing = new AtomicBoolean();
-
-        siteRepository.findAll().forEach(site -> {
-            if (site.getStatus().equals(StatusType.INDEXING)) {
-                isIndexing.set(true);
-            }
-        });
-
-        if (isIndexing.get()) return true;
-
-        forkJoinPoolList.clear();
-        threadList.clear();
-        new Thread(this::indexing).start();
-
-        return false;
-    }
-
-    public boolean stopIndexing() {
-        System.out.println("Threads count: " + threadList.size());
-        AtomicBoolean isIndexing = new AtomicBoolean(false);
-        siteRepository.findAll().forEach(site -> {
-            if (site.getStatus().equals(StatusType.INDEXING)) {
-                isIndexing.set(true);
-            }
-        });
-        if (!isIndexing.get()) {
-            return false;
+            threadList.add(thread);
         }
+
+        startIndexingThread = new Thread(() -> {
+            threadList.forEach(Thread::start);
+            try {
+                for (Thread thread : threadList) {
+                    thread.join();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            isIndexing.set(false);
+        });
+        startIndexingThread.start();
+        return new IndexResponse("startIndexing", false);
+    }
+
+    public Response stopIndexing() {
+        if (!isIndexing.get()) {
+            return new IndexResponse("stopIndexing", false);
+        }
+        isIndexing.set(false);
+
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
                 site.setLastError("Индексация остановлена пользователем");
@@ -141,21 +130,30 @@ public class IndexingService {
                 siteRepository.save(site);
             }
         });
+        for (WebParser webParser : webParserList) {
+            webParser.cancel(true);
+        }
         threadList.forEach(Thread::interrupt);
-        forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
-
-        forkJoinPoolList.clear();
-        threadList.clear();
-
-        return true;
+        startIndexingThread.interrupt();
+        return new IndexResponse("stopIndexing", true);
     }
 
-    public boolean indexPage(String url) {
+    public Response indexPage(String url) {
+        if (url == null) {
+            try {
+                JSONObject response = new JSONObject();
+                response.put("result", false);
+                response.put("error", "Задана пустая ссылка");
+                return new ErrorResponse(response, HttpStatus.BAD_REQUEST);
+            } catch (JSONException e) {
+                throw new RuntimeException(e);
+            }
+        }
         List<searchengine.config.Site> siteList = initSiteList.getSites();
 
         for (searchengine.config.Site initSite : siteList) {
-            if (url.contains(initSite.getUrl()) ||
-                    url.contains(initSite.getUrl().replace("/www.", "/"))) {
+            if (url.replaceAll("^(http(s)?://(www\\.)?)", "")
+                    .contains(initSite.getUrl().replaceAll("^(http(s)?://(www\\.)?)", ""))) {
 
                 Site site = siteRepository.findByUrl(initSite.getUrl());
                 if (site == null) {
@@ -164,29 +162,17 @@ public class IndexingService {
                 site.setStatus(StatusType.INDEXING);
                 siteRepository.save(site);
 
-                try {
-                    Connection.Response response = Jsoup.connect(url)
-                            .ignoreHttpErrors(true)
-                            .userAgent(config.getUserAgent())
-                            .referrer(config.getReferrer())
-                            .execute();
-                    Document document = response.parse();
+                WebParser webParser = new WebParser(url, site, initSiteList, pageRepository, lemmaRepository, indexRepository,
+                        config, lemmatisator, new HashSet<>());
 
-                    WebParser webParser = new WebParser(site, new SitemapNode(url),
-                            siteRepository, pageRepository, lemmaRepository, indexRepository,
-                            config, lemmatisator);
+                webParser.addPage(url);
 
-                    webParser.addPage(response, document);
+                site.setStatus(StatusType.INDEXED);
+                siteRepository.save(site);
 
-                    site.setStatus(StatusType.INDEXED);
-                    siteRepository.save(site);
-
-                    return true;
-                } catch (IOException e) {
-                    return false;
-                }
+                return new IndexResponse("indexPage", true);
             }
         }
-        return false;
+        return new IndexResponse("indexPage", false);
     }
 }

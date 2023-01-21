@@ -1,4 +1,4 @@
-package searchengine.services.searchingService;
+package searchengine.dto.search;
 
 import lombok.Data;
 import org.jsoup.Jsoup;
@@ -11,7 +11,8 @@ import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
-import searchengine.services.lemmatisationService.Lemmatisator;
+import searchengine.dto.Lemmatisator;
+import searchengine.responses.SearchResponse;
 
 import java.util.*;
 
@@ -36,7 +37,7 @@ public final class SearchEngine {
         this.lemmatisator = lemmatisator;
     }
 
-    public Search search(String query, Site site) {
+    public SearchResponse search(String query, Site site) {
         Set<SearchResult> searchResults;
         if (site == null) {
             searchResults = new TreeSet<>();
@@ -44,11 +45,11 @@ public final class SearchEngine {
         } else {
             searchResults = getSearchesBySite(site, query);
         }
-        Search search = new Search();
-        search.setCount(searchResults.size());
-        search.setResult(true);
-        search.setSearchResultSet(searchResults);
-        return search;
+        SearchResponse searchResponse = new SearchResponse();
+        searchResponse.setCount(searchResults.size());
+        searchResponse.setResult(true);
+        searchResponse.setSearchResultSet(searchResults);
+        return searchResponse;
     }
 
     private Set<SearchResult> getSearchesBySite(Site site, String query) {
