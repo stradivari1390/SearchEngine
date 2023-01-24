@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
+import searchengine.dto.WebParsersStorage;
 import searchengine.model.Site;
 import searchengine.model.StatusType;
 import searchengine.repository.*;
@@ -42,11 +43,11 @@ public class IndexingService {
     @Autowired
     Lemmatisator lemmatisator;
 
-    private final List<Thread> threadList = new ArrayList<>();
+    private static List<Thread> threadList = new ArrayList<>();
     private Thread startIndexingThread;
-    private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
-    private final List<WebParser> webParserList = new ArrayList<>();
-    static AtomicBoolean isIndexing = new AtomicBoolean();
+    private static List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
+    private static List<WebParser> webParserList = new ArrayList<>();
+    static AtomicBoolean isIndexing = new AtomicBoolean(false);
 
     private void clearData() {
         indexRepository.deleteAll();
@@ -56,7 +57,7 @@ public class IndexingService {
     }
 
     public Response startIndexing() {
-        isIndexing.set(false);
+
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
                 isIndexing.set(true);
@@ -81,7 +82,7 @@ public class IndexingService {
             webParserList.add(new WebParser(initSiteUrl, site, initSiteList, pageRepository,
                     lemmaRepository, indexRepository, config, lemmatisator, new HashSet<>()));
         }
-
+        isIndexing.set(true);
         for (WebParser webParser : webParserList) {
 
             Site site = webParser.getSite();
@@ -109,7 +110,7 @@ public class IndexingService {
                     thread.join();
                 }
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                e.printStackTrace();
             }
             isIndexing.set(false);
         });
@@ -121,20 +122,23 @@ public class IndexingService {
         if (!isIndexing.get()) {
             return new IndexResponse("stopIndexing", false);
         }
+        for (Thread thread : threadList) {
+            thread.interrupt();
+        }
+        for (ForkJoinPool forkJoinPool : forkJoinPoolList) {
+            forkJoinPool.shutdown();
+        }
+        WebParsersStorage.getInstance().terminateAll();
         isIndexing.set(false);
-
+        threadList.clear();
+        forkJoinPoolList.clear();
+        webParserList.clear();
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
-                site.setLastError("Индексация остановлена пользователем");
                 site.setStatus(StatusType.FAILED);
                 siteRepository.save(site);
             }
         });
-        for (WebParser webParser : webParserList) {
-            webParser.cancel(true);
-        }
-        threadList.forEach(Thread::interrupt);
-        startIndexingThread.interrupt();
         return new IndexResponse("stopIndexing", true);
     }
 

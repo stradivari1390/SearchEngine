@@ -25,7 +25,7 @@ public class IndexingController {
         logger.info("Received request to start indexing");
         Response startIndexingResponse = indexingService.startIndexing();
         logger.info(startIndexingResponse.toString());
-        return startIndexingResponse.get();
+        return new ResponseEntity<>(startIndexingResponse.get(), startIndexingResponse.getHttpStatus());
     }
 
     @GetMapping("/stopIndexing")
@@ -33,7 +33,7 @@ public class IndexingController {
         logger.info("Received request to stop indexing");
         Response stopIndexingResponse = indexingService.stopIndexing();
         logger.info(stopIndexingResponse.toString());
-        return stopIndexingResponse.get();
+        return new ResponseEntity<>(stopIndexingResponse.get(), stopIndexingResponse.getHttpStatus());
     }
 
     @PostMapping("/indexPage")
@@ -41,6 +41,6 @@ public class IndexingController {
         logger.info("Received request to index a page: {}", url);
         Response indexPageResponse = indexingService.indexPage(url);
         logger.info(indexPageResponse.toString());
-        return indexPageResponse.get();
+        return new ResponseEntity<>(indexPageResponse.get(), indexPageResponse.getHttpStatus());
     }
 }

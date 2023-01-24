@@ -1,29 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="WARN">
+<Configuration status="warn">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH-mm-ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
         </Console>
         <RollingFile name="InfoFile" fileName="logs/InfoFile.log"
-                     filePattern="logs/InfoFile-%d{yyyy-MM-dd}-%i.log" append="true">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+                     filePattern="logs/InfoFile-%d{yyyy-MM-dd HH:mm}.log" append="true">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH-mm-ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB"/>
             </Policies>
         </RollingFile>
         <RollingFile name="ErrorFile" fileName="logs/ErrorFile.log"
-                     filePattern="logs/ErrorFile-%d{yyyy-MM-dd}-%i.log" append="true">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+                     filePattern="logs/ErrorFile-%d{yyyy-MM-dd HH:mm}.log" append="true">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH-mm-ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB"/>
             </Policies>
         </RollingFile>
+<!--        <RollingFile name="DebugFile" fileName="logs/debuglogs/DebugFile.log"
+                     filePattern="logs/debuglogs/DebugFile-%d{yyyy-MM-dd HH-mm-ss}.log" append="true">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH-mm-ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="TraceFile" fileName="logs/tracelogs/TraceFile.log"
+                     filePattern="logs/tracelogs/TraceFile-%d{yyyy-MM-dd HH-mm-ss}.log" append="true">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH-mm-ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+        </RollingFile>-->
     </Appenders>
     <Loggers>
-        <Root level="info">
+        <Root level="trace">
             <AppenderRef ref="Console" level="info"/>
             <AppenderRef ref="InfoFile" level="info"/>
             <AppenderRef ref="ErrorFile" level="error"/>
+<!--            <AppenderRef ref="DebugFile" level="debug"/>
+            <AppenderRef ref="TraceFile" level="trace"/>-->
         </Root>
     </Loggers>
 </Configuration>

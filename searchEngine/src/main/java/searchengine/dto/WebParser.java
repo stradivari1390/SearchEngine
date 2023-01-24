@@ -58,17 +58,20 @@ public class WebParser extends RecursiveTask<Integer> {
         this.visitedLinks = visitedLinks;
 
         cleaner = new HtmlCleaner();
+
+        WebParsersStorage.getInstance().add(this);
     }
 
 
     @Override
     protected Integer compute() {
-//        synchronized (visitedLinks) {
-            if (visitedLinks.contains(cleanUrl(url))) {
-                return 0;
-            }
-            visitedLinks.add(cleanUrl(url));
-//        }
+        if (isCancelled()) {
+            return 0;
+        }
+        if (visitedLinks.contains(cleanUrl(url))) {
+            return 0;
+        }
+        visitedLinks.add(cleanUrl(url));
         HashMap<String, Integer> html = getHtmlAndCollectLinks(url);
         int code = (int) html.values().toArray()[0];
         String content = String.valueOf(html.keySet().toArray()[0]);
@@ -81,16 +84,20 @@ public class WebParser extends RecursiveTask<Integer> {
             TagNode node = cleaner.clean(content);
             String plainText = cleaner.getInnerHtml(node);
             addLemmaAndIndex(plainText, page, true);
-
-            List<WebParser> parsers = new ArrayList<>();
-            for (String link : links) {
-                WebParser parser = new WebParser(link, site, initSiteList, pageRepository,
-                        lemmaRepository, indexRepository, config, lemmatisator, visitedLinks);
-                parser.fork();
-                parsers.add(parser);
-            }
-            for (WebParser parser : parsers) {
-                pagesCount += parser.join();
+            if (WebParsersStorage.getInstance().isTerminationInProcess().get()) {
+                Thread.currentThread().interrupt();
+            } else {
+                List<WebParser> parsers = new ArrayList<>();
+                for (String link : links) {
+                    WebParser parser = new WebParser(link, site, initSiteList, pageRepository,
+                            lemmaRepository, indexRepository, config, lemmatisator, visitedLinks);
+                    parser.fork();
+                    parsers.add(parser);
+                }
+                for (WebParser parser : parsers) {
+                    pagesCount += parser.join();
+                    WebParsersStorage.getInstance().remove(parser);
+                }
             }
         }
         return pagesCount;
@@ -124,7 +131,7 @@ public class WebParser extends RecursiveTask<Integer> {
 
     private boolean isValidLink(String link) {
         StringBuilder rootPatterns = new StringBuilder();
-        for(searchengine.config.Site initSite : initSiteList.getSites()) {
+        for (searchengine.config.Site initSite : initSiteList.getSites()) {
             rootPatterns.append("^").append(initSite.getUrl()).append("|");
         }
         String rootPattern = rootPatterns.deleteCharAt(rootPatterns.length() - 1).toString();
@@ -169,13 +176,17 @@ public class WebParser extends RecursiveTask<Integer> {
     private void addLemmaAndIndex(String text, Page page, boolean isNewPage) {
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(text);
         lemmaRankMap.forEach((lemmaString, rank) -> {
-            Lemma lemma = lemmaRepository.findLemmaByLemmaAndSite(lemmaString, page.getSite());
-            if (lemma == null) {
-                lemma = new Lemma(page.getSite(), lemmaString);
-            } else {
-                lemma.setFrequency(lemma.getFrequency() + 1);
+            Lemma lemma;
+            synchronized (lemmaRepository) {
+                lemma = lemmaRepository.findLemmaByLemmaAndSite(lemmaString, page.getSite());
+
+                if (lemma == null) {
+                    lemma = new Lemma(page.getSite(), lemmaString);
+                } else {
+                    lemma.setFrequency(lemma.getFrequency() + 1);
+                }
+                lemmaRepository.save(lemma);
             }
-            lemmaRepository.save(lemma);
             Index index;
             if (isNewPage) {
                 index = new Index(lemma, page, rank);

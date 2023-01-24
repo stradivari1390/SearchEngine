@@ -31,6 +31,6 @@ public class SearchingController {
         logger.info("Received request to search: " + query);
         Response searchResponse = searchingService.search(query, site, offset, limit);
         logger.info(searchResponse.toString());
-        return searchResponse.get();
+        return new ResponseEntity<>(searchResponse.get(), searchResponse.getHttpStatus());
     }
 }
