@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
+import searchengine.dto.WebParsersStorage;
 import searchengine.model.Site;
 import searchengine.model.StatusType;
 import searchengine.repository.*;
@@ -19,8 +20,10 @@ import searchengine.responses.Response;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -42,11 +45,11 @@ public class IndexingService {
     @Autowired
     Lemmatisator lemmatisator;
 
-    private final List<Thread> threadList = new ArrayList<>();
+    private static List<Thread> threadList = new ArrayList<>();
     private Thread startIndexingThread;
-    private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
-    private final List<WebParser> webParserList = new ArrayList<>();
-    static AtomicBoolean isIndexing = new AtomicBoolean();
+    private static List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
+    private static List<WebParser> webParserList = new ArrayList<>();
+    static AtomicBoolean isIndexing = new AtomicBoolean(false);
 
     private void clearData() {
         indexRepository.deleteAll();
@@ -56,7 +59,7 @@ public class IndexingService {
     }
 
     public Response startIndexing() {
-        isIndexing.set(false);
+
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
                 isIndexing.set(true);
@@ -81,7 +84,7 @@ public class IndexingService {
             webParserList.add(new WebParser(initSiteUrl, site, initSiteList, pageRepository,
                     lemmaRepository, indexRepository, config, lemmatisator, new HashSet<>()));
         }
-
+        isIndexing.set(true);
         for (WebParser webParser : webParserList) {
 
             Site site = webParser.getSite();
@@ -89,7 +92,7 @@ public class IndexingService {
             Thread thread = new Thread(() -> {
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
                 forkJoinPoolList.add(forkJoinPool);
-                forkJoinPool.invoke(webParser);
+                forkJoinPool.execute(webParser);
 
                 int count = webParser.join();
 
@@ -109,7 +112,7 @@ public class IndexingService {
                     thread.join();
                 }
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                e.printStackTrace();
             }
             isIndexing.set(false);
         });
@@ -121,20 +124,36 @@ public class IndexingService {
         if (!isIndexing.get()) {
             return new IndexResponse("stopIndexing", false);
         }
+        WebParsersStorage.getInstance().isTerminationInProcess().set(true);
+        Iterator<Thread> iterator = threadList.iterator();
+        while (iterator.hasNext()) {
+            Thread thread = iterator.next();
+            thread.interrupt();
+            iterator.remove();
+        }
+        for (ForkJoinPool forkJoinPool : forkJoinPoolList) {
+            forkJoinPool.shutdown();
+            try {
+                forkJoinPool.awaitTermination(5000, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            if (!forkJoinPool.isTerminated()) {
+                forkJoinPool.shutdownNow();
+            }
+        }
+        WebParsersStorage.getInstance().terminateAll();
         isIndexing.set(false);
-
+        threadList.clear();
+        forkJoinPoolList.clear();
+        webParserList.clear();
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
-                site.setLastError("Индексация остановлена пользователем");
                 site.setStatus(StatusType.FAILED);
                 siteRepository.save(site);
             }
         });
-        for (WebParser webParser : webParserList) {
-            webParser.cancel(true);
-        }
-        threadList.forEach(Thread::interrupt);
-        startIndexingThread.interrupt();
+        WebParsersStorage.getInstance().isTerminationInProcess().set(false);
         return new IndexResponse("stopIndexing", true);
     }
 

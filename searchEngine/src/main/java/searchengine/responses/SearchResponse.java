@@ -5,7 +5,6 @@ import org.springframework.boot.configurationprocessor.json.JSONArray;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import searchengine.dto.search.SearchResult;
 
 import java.util.Set;
@@ -14,11 +13,19 @@ import java.util.TreeSet;
 @Data
 public class SearchResponse extends Response {
 
-    private boolean result = true;
+    private boolean result;
 
-    private int count = 0;
+    private int count;
 
-    private Set<SearchResult> searchResultSet = new TreeSet<>();
+    private Set<SearchResult> searchResultSet;
+    private HttpStatus httpStatus;
+
+    public SearchResponse() {
+        result = true;
+        count = 0;
+        searchResultSet = new TreeSet<>();
+        httpStatus = HttpStatus.OK;
+    }
 
     public void setSearchResultSet(Set<SearchResult> searchResultSet) {
         this.searchResultSet = searchResultSet;
@@ -26,32 +33,37 @@ public class SearchResponse extends Response {
     }
 
     @Override
-    public ResponseEntity<JSONObject> get() {
+    public JSONObject get() {
 
         JSONObject response = new JSONObject();
         try {
             response.put("result", result);
 
-        response.put("count", count);
+            response.put("count", count);
 
-        JSONArray array = new JSONArray();
+            JSONArray array = new JSONArray();
 
-        for(SearchResult searchResult : searchResultSet) {
-            JSONObject object = new JSONObject();
+            for (SearchResult searchResult : searchResultSet) {
+                JSONObject object = new JSONObject();
 
-            object.put("site", searchResult.getSiteUrl());
-            object.put("siteName", searchResult.getSiteName());
-            object.put("uri", searchResult.getUri());
-            object.put("title", searchResult.getTitle());
-            object.put("snippet", searchResult.getSnippet());
-            object.put("relevance", searchResult.getRelevance());
+                object.put("site", searchResult.getSiteUrl());
+                object.put("siteName", searchResult.getSiteName());
+                object.put("uri", searchResult.getUri());
+                object.put("title", searchResult.getTitle());
+                object.put("snippet", searchResult.getSnippet());
+                object.put("relevance", searchResult.getRelevance());
 
-            array.put(object);
-        }
-        response.put("data", array);
+                array.put(object);
+            }
+            response.put("data", array);
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        return response;
+    }
+
+    @Override
+    public HttpStatus getHttpStatus() {
+        return httpStatus;
     }
 }

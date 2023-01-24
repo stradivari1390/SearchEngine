@@ -3,7 +3,6 @@ package searchengine.responses;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 public class ErrorResponse extends Response {
 
@@ -16,7 +15,11 @@ public class ErrorResponse extends Response {
     }
 
     @Override
-    public ResponseEntity<JSONObject> get() {
-        return new ResponseEntity<>(response, httpStatus);
+    public JSONObject get() {
+        return response;
+    }
+    @Override
+    public HttpStatus getHttpStatus() {
+        return httpStatus;
     }
 }

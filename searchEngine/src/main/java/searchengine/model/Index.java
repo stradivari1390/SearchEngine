@@ -23,6 +23,7 @@ public class Index {
     }
 
     @Id
+
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private int id;

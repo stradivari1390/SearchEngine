@@ -16,15 +16,16 @@ server:
 
 spring:
   datasource:
+    driverClassName: com.mysql.cj.jdbc.Driver
     username: root
     password: 12345678
-    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    url: jdbc:mysql://localhost:3306/search_engine?createDatabaseIfNotExist=true
   jpa:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: true
     open-in-view: false
     mapping:
@@ -35,5 +36,4 @@ spring:
 
 logging:
   config:
-    disable-logback: true
     classpath: src/main/resources/log4j2.xml

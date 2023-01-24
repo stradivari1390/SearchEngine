@@ -2,6 +2,7 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import searchengine.config.InitSiteList;
 import searchengine.dto.statistics.DetailedStatisticsItem;
@@ -59,6 +60,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         TotalStatistics total = new TotalStatistics(allSites.get(), allPages.get(),
                 allLemmas.get(), IndexingService.isIndexing.get());
         statistic.setTotal(total);
-        return new StatisticsResponse(true, statistic);
+        return new StatisticsResponse(true, statistic, HttpStatus.OK);
     }
 }

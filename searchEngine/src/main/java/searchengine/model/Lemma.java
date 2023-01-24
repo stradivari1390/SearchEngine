@@ -48,10 +48,10 @@ public class Lemma implements Comparable<Lemma>{
     private Set<Index> indices = new HashSet<>();
 
     @Override
-    public int compareTo(Lemma o) {
-        if (frequency > o.getFrequency()) {
+    public int compareTo(Lemma l) {
+        if (frequency > l.getFrequency()) {
             return 1;
-        } else if (frequency < o.getFrequency()) {
+        } else if (frequency < l.getFrequency()) {
             return -1;
         }
         return 0;

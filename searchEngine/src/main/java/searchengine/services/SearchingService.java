@@ -34,7 +34,7 @@ public class SearchingService {
 
     public Response search(String query, String siteUrl, int offset, int limit) {
 
-        if (query == null) {
+        if (query == null || query.isEmpty()) {
             JSONObject response = new JSONObject();
             try {
                 response.put("result", false);

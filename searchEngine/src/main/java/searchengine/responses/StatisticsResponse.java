@@ -6,7 +6,6 @@ import org.springframework.boot.configurationprocessor.json.JSONArray;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 
@@ -16,11 +15,13 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class StatisticsResponse extends Response {
+
     private boolean result;
     private StatisticsData statisticsData;
+    private HttpStatus httpStatus;
 
     @Override
-    public ResponseEntity<JSONObject> get() {
+    public JSONObject get() {
             JSONObject response = new JSONObject();
             try {
                 response.put("result", true);
@@ -41,6 +42,11 @@ public class StatisticsResponse extends Response {
             } catch (JSONException e) {
                 throw new RuntimeException(e);
             }
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            return response;
+    }
+
+    @Override
+    public HttpStatus getHttpStatus() {
+        return httpStatus;
     }
 }

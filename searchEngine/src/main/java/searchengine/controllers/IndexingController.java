@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import searchengine.responses.Response;
 import searchengine.services.IndexingService;
@@ -20,27 +21,30 @@ public class IndexingController {
         this.indexingService = indexingService;
     }
 
+    @Transactional
     @GetMapping("/startIndexing")
     public ResponseEntity<JSONObject> startIndexing() {
         logger.info("Received request to start indexing");
         Response startIndexingResponse = indexingService.startIndexing();
         logger.info(startIndexingResponse.toString());
-        return startIndexingResponse.get();
+        return new ResponseEntity<>(startIndexingResponse.get(), startIndexingResponse.getHttpStatus());
     }
 
+    @Transactional
     @GetMapping("/stopIndexing")
     public ResponseEntity<JSONObject> stopIndexing() {
         logger.info("Received request to stop indexing");
         Response stopIndexingResponse = indexingService.stopIndexing();
         logger.info(stopIndexingResponse.toString());
-        return stopIndexingResponse.get();
+        return new ResponseEntity<>(stopIndexingResponse.get(), stopIndexingResponse.getHttpStatus());
     }
 
+    @Transactional
     @PostMapping("/indexPage")
     public ResponseEntity<JSONObject> indexPage(@RequestParam(name = "url") String url) {
         logger.info("Received request to index a page: {}", url);
         Response indexPageResponse = indexingService.indexPage(url);
         logger.info(indexPageResponse.toString());
-        return indexPageResponse.get();
+        return new ResponseEntity<>(indexPageResponse.get(), indexPageResponse.getHttpStatus());
     }
 }
