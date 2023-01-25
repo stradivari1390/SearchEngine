@@ -3,7 +3,7 @@ package searchengine.dto;
 import java.io.IOException;
 
 import java.util.*;
-import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.RecursiveAction;
 import java.util.regex.Pattern;
 
 import org.htmlcleaner.HtmlCleaner;
@@ -24,7 +24,7 @@ import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 
-public class WebParser extends RecursiveTask<Integer> {
+public class WebParser extends RecursiveAction {
     private final Site site;
     private final InitSiteList initSiteList;
     private final PageRepository pageRepository;
@@ -35,7 +35,6 @@ public class WebParser extends RecursiveTask<Integer> {
     private final String url;
     private final String userAgent;
     private final String referrer;
-    private int pagesCount = 0;
     HtmlCleaner cleaner;
     private HashSet<String> links = new HashSet<>();
     private HashSet<String> visitedLinks;
@@ -64,43 +63,36 @@ public class WebParser extends RecursiveTask<Integer> {
 
 
     @Override
-    protected Integer compute() {
-        if (isCancelled()) {
-            return 0;
-        }
-        if (visitedLinks.contains(cleanUrl(url))) {
-            return 0;
+    protected void compute() {
+        if (WebParsersStorage.getInstance().isTerminationInProcess().get() ||
+                isCancelled() || visitedLinks.contains(cleanUrl(url))) {
+
+            return;
         }
         visitedLinks.add(cleanUrl(url));
         HashMap<String, Integer> html = getHtmlAndCollectLinks(url);
         int code = (int) html.values().toArray()[0];
         String content = String.valueOf(html.keySet().toArray()[0]);
 
-        if (html != null) {
-            Page page = new Page(site, cleanUrl(url), code, content);
-            pageRepository.save(page);
-            pagesCount++;
+        Page page = new Page(site, cleanUrl(url), code, content);
+        pageRepository.save(page);
 
-            TagNode node = cleaner.clean(content);
-            String plainText = cleaner.getInnerHtml(node);
-            addLemmaAndIndex(plainText, page, true);
-            if (WebParsersStorage.getInstance().isTerminationInProcess().get()) {
-                return pagesCount;
-            } else {
-                List<WebParser> parsers = new ArrayList<>();
-                for (String link : links) {
-                    WebParser parser = new WebParser(link, site, initSiteList, pageRepository,
-                            lemmaRepository, indexRepository, config, lemmatisator, visitedLinks);
-                    parser.fork();
-                    parsers.add(parser);
-                }
-                for (WebParser parser : parsers) {
-                    pagesCount += parser.join();
-                    WebParsersStorage.getInstance().remove(parser);
-                }
+        TagNode node = cleaner.clean(content);
+        String plainText = cleaner.getInnerHtml(node);
+        addLemmaAndIndex(plainText, page, true);
+
+            List<WebParser> parsers = new ArrayList<>();
+            for (String link : links) {
+                WebParser parser = new WebParser(link, site, initSiteList, pageRepository,
+                        lemmaRepository, indexRepository, config, lemmatisator, visitedLinks);
+                parser.fork();
+                parsers.add(parser);
             }
-        }
-        return pagesCount;
+            for (WebParser parser : parsers) {
+                parser.join();
+                WebParsersStorage.getInstance().remove(parser);
+            }
+
     }
 
     private HashMap<String, Integer> getHtmlAndCollectLinks(String url) {
