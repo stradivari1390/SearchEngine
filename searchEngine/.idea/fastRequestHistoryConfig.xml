@@ -5,7 +5,7 @@
       <list>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="400" />
+          <option name="code" value="200" />
           <option name="enableEnv" value="local" />
           <option name="enableProject" value="searchengine" />
           <option name="method" value="index" />
@@ -28,6 +28,32 @@
           <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
           <option name="response" value="{}" />
           <option name="url" value="/api/stopIndexing" />
+        </ResponseHistory>
+        <ResponseHistory>
+          <option name="className" value="searchengine.controllers.DefaultController" />
+          <option name="code" value="200" />
+          <option name="enableEnv" value="local" />
+          <option name="enableProject" value="searchengine" />
+          <option name="method" value="index" />
+          <option name="methodType" value="GET" />
+          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+          <option name="paramGroup">
+            <ParamGroupCollection>
+              <option name="className" value="searchengine.controllers.DefaultController" />
+              <option name="method" value="index" />
+              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+              <option name="multipartKeyValueListJson" value="[]" />
+              <option name="originUrl" value="/" />
+              <option name="pathParamsKeyValueListJson" value="[]" />
+              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
+              <option name="url" value="/api/startIndexing" />
+              <option name="urlEncodedKeyValueListJson" value="[]" />
+              <option name="urlParamsKeyValueListJson" value="[]" />
+            </ParamGroupCollection>
+          </option>
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/startIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="response" value="{}" />
+          <option name="url" value="/api/startIndexing" />
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
@@ -83,32 +109,6 @@
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="400" />
-          <option name="enableEnv" value="local" />
-          <option name="enableProject" value="searchengine" />
-          <option name="method" value="index" />
-          <option name="methodType" value="GET" />
-          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-          <option name="paramGroup">
-            <ParamGroupCollection>
-              <option name="className" value="searchengine.controllers.DefaultController" />
-              <option name="method" value="index" />
-              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-              <option name="multipartKeyValueListJson" value="[]" />
-              <option name="originUrl" value="/" />
-              <option name="pathParamsKeyValueListJson" value="[]" />
-              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/stopIndexing" />
-              <option name="urlEncodedKeyValueListJson" value="[]" />
-              <option name="urlParamsKeyValueListJson" value="[]" />
-            </ParamGroupCollection>
-          </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="{}" />
-          <option name="url" value="/api/stopIndexing" />
-        </ResponseHistory>
-        <ResponseHistory>
-          <option name="className" value="searchengine.controllers.DefaultController" />
           <option name="code" value="200" />
           <option name="enableEnv" value="local" />
           <option name="enableProject" value="searchengine" />
@@ -161,6 +161,7 @@
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
+          <option name="code" value="500" />
           <option name="enableEnv" value="local" />
           <option name="enableProject" value="searchengine" />
           <option name="method" value="index" />
@@ -181,7 +182,7 @@
             </ParamGroupCollection>
           </option>
           <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="Connection refused: no further information" />
+          <option name="response" value="{&quot;timestamp&quot;:1674646633899,&quot;status&quot;:500,&quot;error&quot;:&quot;Internal Server Error&quot;,&quot;message&quot;:&quot;Error creating bean with name 'entityManagerFactory': Singleton bean creation not allowed while singletons of this factory are in destruction (Do not request a bean from a BeanFactory in a destroy method implementation!)&quot;,&quot;path&quot;:&quot;/api/stopIndexing&quot;}" />
           <option name="url" value="/api/stopIndexing" />
         </ResponseHistory>
         <ResponseHistory>
@@ -209,32 +210,6 @@
           <option name="requestInfo" value="Request Url: http://localhost:8080/api/startIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
           <option name="response" value="{}" />
           <option name="url" value="/api/startIndexing" />
-        </ResponseHistory>
-        <ResponseHistory>
-          <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="400" />
-          <option name="enableEnv" value="local" />
-          <option name="enableProject" value="searchengine" />
-          <option name="method" value="index" />
-          <option name="methodType" value="GET" />
-          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-          <option name="paramGroup">
-            <ParamGroupCollection>
-              <option name="className" value="searchengine.controllers.DefaultController" />
-              <option name="method" value="index" />
-              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-              <option name="multipartKeyValueListJson" value="[]" />
-              <option name="originUrl" value="/" />
-              <option name="pathParamsKeyValueListJson" value="[]" />
-              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/stopIndexing" />
-              <option name="urlEncodedKeyValueListJson" value="[]" />
-              <option name="urlParamsKeyValueListJson" value="[]" />
-            </ParamGroupCollection>
-          </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="{}" />
-          <option name="url" value="/api/stopIndexing" />
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
@@ -310,7 +285,7 @@
             </ParamGroupCollection>
           </option>
           <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="Connection refused: no further information" />
+          <option name="response" value="Read timed out" />
           <option name="url" value="/api/stopIndexing" />
         </ResponseHistory>
         <ResponseHistory>
@@ -354,20 +329,19 @@
               <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
               <option name="multipartKeyValueListJson" value="[]" />
               <option name="originUrl" value="/" />
-              <option name="pathParamsKeyValueListJson" value="[{&quot;customFlag&quot;:2,&quot;enabled&quot;:true,&quot;key&quot;:&quot;query&quot;,&quot;type&quot;:&quot;String&quot;,&quot;value&quot;:&quot;phone&quot;}]" />
+              <option name="pathParamsKeyValueListJson" value="[]" />
               <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/search" />
+              <option name="url" value="/api/stopIndexing" />
               <option name="urlEncodedKeyValueListJson" value="[]" />
               <option name="urlParamsKeyValueListJson" value="[]" />
             </ParamGroupCollection>
           </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/search&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
           <option name="response" value="{}" />
-          <option name="url" value="/api/search" />
+          <option name="url" value="/api/stopIndexing" />
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="200" />
           <option name="enableEnv" value="local" />
           <option name="enableProject" value="searchengine" />
           <option name="method" value="index" />
@@ -382,18 +356,18 @@
               <option name="originUrl" value="/" />
               <option name="pathParamsKeyValueListJson" value="[]" />
               <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/statistics" />
+              <option name="url" value="/api/stopIndexing" />
               <option name="urlEncodedKeyValueListJson" value="[]" />
               <option name="urlParamsKeyValueListJson" value="[]" />
             </ParamGroupCollection>
           </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/statistics&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="{}" />
-          <option name="url" value="/api/statistics" />
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="response" value="Read timed out" />
+          <option name="url" value="/api/stopIndexing" />
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="200" />
+          <option name="code" value="500" />
           <option name="enableEnv" value="local" />
           <option name="enableProject" value="searchengine" />
           <option name="method" value="index" />
@@ -408,18 +382,17 @@
               <option name="originUrl" value="/" />
               <option name="pathParamsKeyValueListJson" value="[]" />
               <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/statistics" />
+              <option name="url" value="/api/startIndexing" />
               <option name="urlEncodedKeyValueListJson" value="[]" />
               <option name="urlParamsKeyValueListJson" value="[]" />
             </ParamGroupCollection>
           </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/statistics&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="{}" />
-          <option name="url" value="/api/statistics" />
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/startIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="response" value="{&quot;timestamp&quot;:1674635525460,&quot;status&quot;:500,&quot;error&quot;:&quot;Internal Server Error&quot;,&quot;message&quot;:&quot;could not execute statement; SQL [n/a]; constraint [null]; nested exception is org.hibernate.exception.ConstraintViolationException: could not execute statement&quot;,&quot;path&quot;:&quot;/api/startIndexing&quot;}" />
+          <option name="url" value="/api/startIndexing" />
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="200" />
           <option name="enableEnv" value="local" />
           <option name="enableProject" value="searchengine" />
           <option name="method" value="index" />
@@ -434,66 +407,14 @@
               <option name="originUrl" value="/" />
               <option name="pathParamsKeyValueListJson" value="[]" />
               <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/statistics" />
+              <option name="url" value="/api/stopIndexing" />
               <option name="urlEncodedKeyValueListJson" value="[]" />
               <option name="urlParamsKeyValueListJson" value="[]" />
             </ParamGroupCollection>
           </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/statistics&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="{}" />
-          <option name="url" value="/api/statistics" />
-        </ResponseHistory>
-        <ResponseHistory>
-          <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="200" />
-          <option name="enableEnv" value="local" />
-          <option name="enableProject" value="searchengine" />
-          <option name="method" value="index" />
-          <option name="methodType" value="GET" />
-          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-          <option name="paramGroup">
-            <ParamGroupCollection>
-              <option name="className" value="searchengine.controllers.DefaultController" />
-              <option name="method" value="index" />
-              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-              <option name="multipartKeyValueListJson" value="[]" />
-              <option name="originUrl" value="/" />
-              <option name="pathParamsKeyValueListJson" value="[]" />
-              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/statistics" />
-              <option name="urlEncodedKeyValueListJson" value="[]" />
-              <option name="urlParamsKeyValueListJson" value="[]" />
-            </ParamGroupCollection>
-          </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/statistics&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="{}" />
-          <option name="url" value="/api/statistics" />
-        </ResponseHistory>
-        <ResponseHistory>
-          <option name="className" value="searchengine.controllers.DefaultController" />
-          <option name="code" value="200" />
-          <option name="enableEnv" value="local" />
-          <option name="enableProject" value="searchengine" />
-          <option name="method" value="index" />
-          <option name="methodType" value="GET" />
-          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-          <option name="paramGroup">
-            <ParamGroupCollection>
-              <option name="className" value="searchengine.controllers.DefaultController" />
-              <option name="method" value="index" />
-              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
-              <option name="multipartKeyValueListJson" value="[]" />
-              <option name="originUrl" value="/" />
-              <option name="pathParamsKeyValueListJson" value="[]" />
-              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
-              <option name="url" value="/api/statistics" />
-              <option name="urlEncodedKeyValueListJson" value="[]" />
-              <option name="urlParamsKeyValueListJson" value="[]" />
-            </ParamGroupCollection>
-          </option>
-          <option name="requestInfo" value="Request Url: http://localhost:8080/api/statistics&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
-          <option name="response" value="{}" />
-          <option name="url" value="/api/statistics" />
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="response" value="Read timed out" />
+          <option name="url" value="/api/stopIndexing" />
         </ResponseHistory>
         <ResponseHistory>
           <option name="className" value="searchengine.controllers.DefaultController" />
@@ -520,6 +441,84 @@
           <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
           <option name="response" value="{}" />
           <option name="url" value="/api/stopIndexing" />
+        </ResponseHistory>
+        <ResponseHistory>
+          <option name="className" value="searchengine.controllers.DefaultController" />
+          <option name="code" value="400" />
+          <option name="enableEnv" value="local" />
+          <option name="enableProject" value="searchengine" />
+          <option name="method" value="index" />
+          <option name="methodType" value="GET" />
+          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+          <option name="paramGroup">
+            <ParamGroupCollection>
+              <option name="className" value="searchengine.controllers.DefaultController" />
+              <option name="method" value="index" />
+              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+              <option name="multipartKeyValueListJson" value="[]" />
+              <option name="originUrl" value="/" />
+              <option name="pathParamsKeyValueListJson" value="[]" />
+              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
+              <option name="url" value="/api/stopIndexing" />
+              <option name="urlEncodedKeyValueListJson" value="[]" />
+              <option name="urlParamsKeyValueListJson" value="[]" />
+            </ParamGroupCollection>
+          </option>
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="response" value="{}" />
+          <option name="url" value="/api/stopIndexing" />
+        </ResponseHistory>
+        <ResponseHistory>
+          <option name="className" value="searchengine.controllers.DefaultController" />
+          <option name="code" value="400" />
+          <option name="enableEnv" value="local" />
+          <option name="enableProject" value="searchengine" />
+          <option name="method" value="index" />
+          <option name="methodType" value="GET" />
+          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+          <option name="paramGroup">
+            <ParamGroupCollection>
+              <option name="className" value="searchengine.controllers.DefaultController" />
+              <option name="method" value="index" />
+              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+              <option name="multipartKeyValueListJson" value="[]" />
+              <option name="originUrl" value="/" />
+              <option name="pathParamsKeyValueListJson" value="[]" />
+              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
+              <option name="url" value="/api/stopIndexing" />
+              <option name="urlEncodedKeyValueListJson" value="[]" />
+              <option name="urlParamsKeyValueListJson" value="[]" />
+            </ParamGroupCollection>
+          </option>
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/stopIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="response" value="{}" />
+          <option name="url" value="/api/stopIndexing" />
+        </ResponseHistory>
+        <ResponseHistory>
+          <option name="className" value="searchengine.controllers.DefaultController" />
+          <option name="code" value="200" />
+          <option name="enableEnv" value="local" />
+          <option name="enableProject" value="searchengine" />
+          <option name="method" value="index" />
+          <option name="methodType" value="GET" />
+          <option name="name" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+          <option name="paramGroup">
+            <ParamGroupCollection>
+              <option name="className" value="searchengine.controllers.DefaultController" />
+              <option name="method" value="index" />
+              <option name="methodDescription" value="Метод формирует страницу из HTML-файла index.html, который находится в папке resources/templates. Это делает библиотека Thymeleaf." />
+              <option name="multipartKeyValueListJson" value="[]" />
+              <option name="originUrl" value="/" />
+              <option name="pathParamsKeyValueListJson" value="[]" />
+              <option name="returnDocument" value="&quot;No comment,Type =String&quot;" />
+              <option name="url" value="/api/startIndexing" />
+              <option name="urlEncodedKeyValueListJson" value="[]" />
+              <option name="urlParamsKeyValueListJson" value="[]" />
+            </ParamGroupCollection>
+          </option>
+          <option name="requestInfo" value="Request Url: http://localhost:8080/api/startIndexing&#13;&#10;Request Headers: &#13;&#10;    Accept: application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#13;&#10;    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool&#13;&#10;    Accept-Encoding: gzip, deflate&#13;&#10;    Accept-Language: zh-CN,zh;q=0.8&#13;&#10;Request Body: &#13;&#10;    null&#13;&#10;" />
+          <option name="response" value="{}" />
+          <option name="url" value="/api/startIndexing" />
         </ResponseHistory>
       </list>
     </option>

@@ -45,10 +45,9 @@ public class IndexingService {
     @Autowired
     Lemmatisator lemmatisator;
 
-    private static List<Thread> threadList = new ArrayList<>();
-    private Thread startIndexingThread;
-    private static List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
-    private static List<WebParser> webParserList = new ArrayList<>();
+    private List<Thread> threadList;
+    private List<ForkJoinPool> forkJoinPoolList;
+    private List<WebParser> webParserList;
     static AtomicBoolean isIndexing = new AtomicBoolean(false);
 
     private void clearData() {
@@ -68,6 +67,10 @@ public class IndexingService {
         if (isIndexing.get()) {
             return new IndexResponse("startIndexing", true);
         }
+
+        threadList = new ArrayList<>();
+        forkJoinPoolList = new ArrayList<>();
+        webParserList = new ArrayList<>();
 
         clearData();
 
@@ -93,30 +96,27 @@ public class IndexingService {
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
                 forkJoinPoolList.add(forkJoinPool);
                 forkJoinPool.execute(webParser);
-
-                int count = webParser.join();
-
+                webParser.join();
                 site.setStatus(StatusType.INDEXED);
                 siteRepository.save(site);
-
-                System.out.println("Site " + site.getName() + " indexed, page-count - " + count);
             });
 
             threadList.add(thread);
         }
 
-        startIndexingThread = new Thread(() -> {
+        Thread startIndexingThread = new Thread(() -> {
             threadList.forEach(Thread::start);
-            try {
-                for (Thread thread : threadList) {
+            for (Thread thread : threadList) {
+                try {
                     thread.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
             }
             isIndexing.set(false);
         });
         startIndexingThread.start();
+        threadList.add(startIndexingThread);
         return new IndexResponse("startIndexing", false);
     }
 
@@ -134,7 +134,7 @@ public class IndexingService {
         for (ForkJoinPool forkJoinPool : forkJoinPoolList) {
             forkJoinPool.shutdown();
             try {
-                forkJoinPool.awaitTermination(5000, TimeUnit.MILLISECONDS);
+                forkJoinPool.awaitTermination(3000, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -150,6 +150,7 @@ public class IndexingService {
         siteRepository.findAll().forEach(site -> {
             if (site.getStatus().equals(StatusType.INDEXING)) {
                 site.setStatus(StatusType.FAILED);
+                site.setLastError("Индексация остановлена пользователем");
                 siteRepository.save(site);
             }
         });

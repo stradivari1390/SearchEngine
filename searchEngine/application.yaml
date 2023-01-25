@@ -19,13 +19,13 @@ spring:
     driverClassName: com.mysql.cj.jdbc.Driver
     username: root
     password: 12345678
-    url: jdbc:mysql://localhost:3306/search_engine?createDatabaseIfNotExist=true
+    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
   jpa:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: create
+      ddl-auto: create-drop
     show-sql: true
     open-in-view: false
     mapping:
@@ -35,5 +35,8 @@ spring:
       - class: searchengine.model.Index
 
 logging:
+  level:
+    org.springframework.web.servlet.DispatcherServlet: trace
+    request-details: trace
   config:
     classpath: src/main/resources/log4j2.xml
