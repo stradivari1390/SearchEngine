@@ -20,9 +20,9 @@ import java.util.Set;
 })
 public class Lemma implements Comparable<Lemma>{
 
-    public Lemma(Site site, String lemma) {
+    public Lemma(Site site, String lemmaString) {
         this.site = site;
-        this.lemma = lemma;
+        this.lemmaString = lemmaString;
     }
 
     @Id
@@ -38,7 +38,7 @@ public class Lemma implements Comparable<Lemma>{
 
     @ToString.Include
     @Column(name = "lemma", nullable = false, columnDefinition = "VARCHAR(255)")
-    private String lemma;
+    private String lemmaString;
 
     @ToString.Include
     @Column(name = "frequency", nullable = false) //, columnDefinition = "integer default 1")  ToDo: figure out why doesnt work

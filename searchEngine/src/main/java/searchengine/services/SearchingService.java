@@ -6,6 +6,9 @@ import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import searchengine.exceptions.EmptyQueryException;
+import searchengine.exceptions.LemmatizationException;
+import searchengine.exceptions.NotFoundSiteException;
 import searchengine.responses.ErrorResponse;
 import searchengine.responses.Response;
 import searchengine.responses.SearchResponse;
@@ -32,7 +35,7 @@ public class SearchingService {
     @Autowired
     private LemmaRepository lemmaRepository;
 
-    public Response search(String query, String siteUrl, int offset, int limit) {
+    public Response search(String query, String siteUrl, int offset, int limit) throws LemmatizationException, NotFoundSiteException {
 
         if (query == null || query.isEmpty()) {
             JSONObject response = new JSONObject();
@@ -41,7 +44,7 @@ public class SearchingService {
                 response.put("error", "Задан пустой поисковый запрос");
                 return new ErrorResponse(response, HttpStatus.BAD_REQUEST);
             } catch (JSONException e) {
-                throw new RuntimeException(e);
+                throw new EmptyQueryException(e);
             }
         }
 
@@ -52,10 +55,10 @@ public class SearchingService {
                 response.put("error", "Указанная страница не найдена");
                 return new ErrorResponse(response, HttpStatus.NOT_FOUND);
             } catch (JSONException e) {
-                throw new RuntimeException(e);
+                throw new NotFoundSiteException(e);
             }
         }
-
+        lemmatisator = Lemmatisator.getInstance();
         SearchEngine searchEngine = new SearchEngine(siteRepository, pageRepository,
                 lemmaRepository, indexRepository, lemmatisator);
 

@@ -1,11 +1,10 @@
 package searchengine.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 import searchengine.model.Site;
 
 @Repository
 public interface SiteRepository extends JpaRepository<Site, Integer> {
-    Site findByUrl(@NonNull String url);
+    Site findByUrl(String url);
 }

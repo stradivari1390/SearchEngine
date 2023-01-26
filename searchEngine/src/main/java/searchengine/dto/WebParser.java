@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.concurrent.RecursiveAction;
 import java.util.regex.Pattern;
 
+import lombok.SneakyThrows;
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
 
@@ -14,8 +15,11 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
+import searchengine.exceptions.WebParserException;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
 import searchengine.model.Page;
@@ -24,35 +28,36 @@ import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 
+@Component
 public class WebParser extends RecursiveAction {
-    private final Site site;
-    private final InitSiteList initSiteList;
-    private final PageRepository pageRepository;
-    private final LemmaRepository lemmaRepository;
-    private final IndexRepository indexRepository;
-    private final Config config;
-    private final Lemmatisator lemmatisator;
+    private final transient Site site;
     private final String url;
-    private final String userAgent;
-    private final String referrer;
-    HtmlCleaner cleaner;
-    private HashSet<String> links = new HashSet<>();
-    private HashSet<String> visitedLinks;
+    @Autowired
+    private transient InitSiteList initSiteList;
+    @Autowired
+    private transient PageRepository pageRepository;
+    @Autowired
+    private transient LemmaRepository lemmaRepository;
+    @Autowired
+    private transient IndexRepository indexRepository;
+    @Autowired
+    private transient Config config;
+    @Autowired
+    private transient Lemmatisator lemmatisator;
 
-    public WebParser(String url, Site site, InitSiteList initSiteList, PageRepository pageRepository,
-                     LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                     Config config, Lemmatisator lemmatisator, HashSet<String> visitedLinks) {
+    transient HtmlCleaner cleaner;
+    private final Set<String> links = new HashSet<>();
+    private Set<String> visitedLinks;
+
+    public WebParser() {
+        site = new Site();
+        url = "";
+    }
+
+    public WebParser(String url, Site site, Set<String> visitedLinks) {
+
         this.url = url;
         this.site = site;
-        this.initSiteList = initSiteList;
-        this.pageRepository = pageRepository;
-        this.lemmaRepository = lemmaRepository;
-        this.indexRepository = indexRepository;
-        this.config = config;
-        this.lemmatisator = lemmatisator;
-
-        this.userAgent = config.getUserAgent();
-        this.referrer = config.getReferrer();
 
         this.visitedLinks = visitedLinks;
 
@@ -61,30 +66,28 @@ public class WebParser extends RecursiveAction {
         WebParsersStorage.getInstance().add(this);
     }
 
-
+    @SneakyThrows
     @Override
     protected void compute() {
-        if (WebParsersStorage.getInstance().isTerminationInProcess().get() ||
-                isCancelled() || visitedLinks.contains(cleanUrl(url))) {
+        while (!WebParsersStorage.getInstance().isTerminationInProcess().get()) {
+            if (visitedLinks.contains(cleanUrl(url))) {
+                return;
+            }
+            visitedLinks.add(cleanUrl(url));
+            HashMap<String, Integer> html = getHtmlAndCollectLinks(url);
+            int code = (int) html.values().toArray()[0];
+            String content = String.valueOf(html.keySet().toArray()[0]);
 
-            return;
-        }
-        visitedLinks.add(cleanUrl(url));
-        HashMap<String, Integer> html = getHtmlAndCollectLinks(url);
-        int code = (int) html.values().toArray()[0];
-        String content = String.valueOf(html.keySet().toArray()[0]);
+            Page page = new Page(site, cleanUrl(url), code, content);
+            pageRepository.save(page);
 
-        Page page = new Page(site, cleanUrl(url), code, content);
-        pageRepository.save(page);
-
-        TagNode node = cleaner.clean(content);
-        String plainText = cleaner.getInnerHtml(node);
-        addLemmaAndIndex(plainText, page, true);
+            TagNode node = cleaner.clean(content);
+            String plainText = cleaner.getInnerHtml(node);
+            addLemmaAndIndex(plainText, page, true);
 
             List<WebParser> parsers = new ArrayList<>();
             for (String link : links) {
-                WebParser parser = new WebParser(link, site, initSiteList, pageRepository,
-                        lemmaRepository, indexRepository, config, lemmatisator, visitedLinks);
+                WebParser parser = new WebParser(link, site, visitedLinks);
                 parser.fork();
                 parsers.add(parser);
             }
@@ -92,10 +95,10 @@ public class WebParser extends RecursiveAction {
                 parser.join();
                 WebParsersStorage.getInstance().remove(parser);
             }
-
+        }
     }
 
-    private HashMap<String, Integer> getHtmlAndCollectLinks(String url) {
+    private HashMap<String, Integer> getHtmlAndCollectLinks(String url) throws WebParserException {
         Connection.Response response;
         Document document;
         try {
@@ -106,7 +109,7 @@ public class WebParser extends RecursiveAction {
                     .execute();
             document = response.parse();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new WebParserException("Error occurred while trying to parse HTML and collect links", e);
         }
         Elements linkElements = document.select("a[href]");
         for (Element linkElement : linkElements) {
@@ -136,10 +139,10 @@ public class WebParser extends RecursiveAction {
         return !file.matcher(link).find() &&
                 !pageElement.matcher(link).find() &&
                 !contactLink.matcher(link).find() &&
-                root.matcher(link.replaceAll("/www\\.", "/")).lookingAt();
+                root.matcher(link.replaceAll("/w{3}\\.", "/")).lookingAt();
     }
 
-    public void addPage(String url) {
+    public void addPage(String url) throws WebParserException {
         boolean isNewPage = false;
         HashMap<String, Integer> html = getHtmlAndCollectLinks(url);
 

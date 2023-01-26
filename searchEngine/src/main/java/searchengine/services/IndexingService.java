@@ -1,18 +1,22 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import searchengine.config.Config;
 import searchengine.config.InitSiteList;
 import searchengine.dto.WebParsersStorage;
+import searchengine.exceptions.EmptyLinkException;
+import searchengine.exceptions.WebParserException;
 import searchengine.model.Site;
 import searchengine.model.StatusType;
 import searchengine.repository.*;
-import searchengine.dto.Lemmatisator;
 import searchengine.dto.WebParser;
 import searchengine.responses.ErrorResponse;
 import searchengine.responses.IndexResponse;
@@ -30,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 public class IndexingService {
 
+    private static final Logger logger = LogManager.getLogger(IndexingService.class);
     @Autowired
     private SiteRepository siteRepository;
     @Autowired
@@ -40,10 +45,6 @@ public class IndexingService {
     private IndexRepository indexRepository;
     @Autowired
     private InitSiteList initSiteList;
-    @Autowired
-    private Config config;
-    @Autowired
-    Lemmatisator lemmatisator;
 
     private List<Thread> threadList;
     private List<ForkJoinPool> forkJoinPoolList;
@@ -56,7 +57,7 @@ public class IndexingService {
         pageRepository.deleteAll();
         siteRepository.deleteAll();
     }
-
+    @SneakyThrows
     public Response startIndexing() {
 
         siteRepository.findAll().forEach(site -> {
@@ -84,8 +85,7 @@ public class IndexingService {
             site.setStatus(StatusType.INDEXING);
             siteRepository.save(site);
 
-            webParserList.add(new WebParser(initSiteUrl, site, initSiteList, pageRepository,
-                    lemmaRepository, indexRepository, config, lemmatisator, new HashSet<>()));
+            webParserList.add(new WebParser(initSiteUrl, site, new HashSet<>()));
         }
         isIndexing.set(true);
         for (WebParser webParser : webParserList) {
@@ -108,9 +108,12 @@ public class IndexingService {
             threadList.forEach(Thread::start);
             for (Thread thread : threadList) {
                 try {
+                    logger.info("Thread state: {}", thread.getState());
+                    logger.info(thread.isAlive());
                     thread.join();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    logger.log(Level.WARN, "Interrupted!", e);
+                    Thread.currentThread().interrupt();
                 }
             }
             isIndexing.set(false);
@@ -120,6 +123,7 @@ public class IndexingService {
         return new IndexResponse("startIndexing", false);
     }
 
+    @SneakyThrows
     public Response stopIndexing() {
         if (!isIndexing.get()) {
             return new IndexResponse("stopIndexing", false);
@@ -136,7 +140,8 @@ public class IndexingService {
             try {
                 forkJoinPool.awaitTermination(3000, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                logger.log(Level.WARN, "Interrupted!", e);
+                Thread.currentThread().interrupt();
             }
             if (!forkJoinPool.isTerminated()) {
                 forkJoinPool.shutdownNow();
@@ -158,6 +163,7 @@ public class IndexingService {
         return new IndexResponse("stopIndexing", true);
     }
 
+    @SneakyThrows
     public Response indexPage(String url) {
         if (url == null) {
             try {
@@ -166,7 +172,7 @@ public class IndexingService {
                 response.put("error", "Задана пустая ссылка");
                 return new ErrorResponse(response, HttpStatus.BAD_REQUEST);
             } catch (JSONException e) {
-                throw new RuntimeException(e);
+                throw new EmptyLinkException(e);
             }
         }
         List<searchengine.config.Site> siteList = initSiteList.getSites();
@@ -182,8 +188,7 @@ public class IndexingService {
                 site.setStatus(StatusType.INDEXING);
                 siteRepository.save(site);
 
-                WebParser webParser = new WebParser(url, site, initSiteList, pageRepository, lemmaRepository, indexRepository,
-                        config, lemmatisator, new HashSet<>());
+                WebParser webParser = new WebParser(url, site, new HashSet<>());
 
                 webParser.addPage(url);
 

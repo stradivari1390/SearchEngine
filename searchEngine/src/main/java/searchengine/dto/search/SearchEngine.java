@@ -3,6 +3,7 @@ package searchengine.dto.search;
 import lombok.Data;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -17,14 +18,19 @@ import searchengine.responses.SearchResponse;
 import java.util.*;
 
 @Component
-@Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Scope(scopeName = ConfigurableBeanFactory.SCOPE_SINGLETON)
 @Data
 public final class SearchEngine {
 
+    @Autowired
     private final Lemmatisator lemmatisator;
+    @Autowired
     private final IndexRepository indexRepository;
+    @Autowired
     private final PageRepository pageRepository;
+    @Autowired
     private final SiteRepository siteRepository;
+    @Autowired
     private final LemmaRepository lemmaRepository;
 
     public SearchEngine(SiteRepository siteRepository, PageRepository pageRepository,
@@ -41,9 +47,9 @@ public final class SearchEngine {
         Set<SearchResult> searchResults;
         if (site == null) {
             searchResults = new TreeSet<>();
-            siteRepository.findAll().forEach(s -> searchResults.addAll(getSearchesBySite(s, query)));
+            siteRepository.findAll().forEach(s -> searchResults.addAll(getSearchesBySite(query, s)));
         } else {
-            searchResults = getSearchesBySite(site, query);
+            searchResults = getSearchesBySite(query, site);
         }
         SearchResponse searchResponse = new SearchResponse();
         searchResponse.setCount(searchResults.size());
@@ -52,7 +58,7 @@ public final class SearchEngine {
         return searchResponse;
     }
 
-    private Set<SearchResult> getSearchesBySite(Site site, String query) {
+    private Set<SearchResult> getSearchesBySite(String query, Site site) {
         List<Page> pageList = pageRepository.findAllBySite(site);
         return addSearchQuery(site, query, pageList);
     }
@@ -72,7 +78,7 @@ public final class SearchEngine {
             lemmaSet.forEach(lemma -> {
                 Index index = indexRepository.findByLemmaAndPage(lemma, page);
                 if (index != null) {
-                    pageLemmas.put(lemma.getLemma(), index.getRank());
+                    pageLemmas.put(lemma.getLemmaString(), index.getRank());
                 }
             });
             if (!pageLemmas.isEmpty()) {
@@ -92,23 +98,8 @@ public final class SearchEngine {
         indexRanks.forEach(indexRank -> {
             Document document = Jsoup.parse(indexRank.getPage().getContent());
             String text = document.text().toLowerCase();
-            int count = 0;
-            String snippet = "";
-            Set<Lemma> lemmaToRemove = new HashSet<>();
-            for (Lemma lemma : lemmaSet) {
-                String lemmaString = lemma.getLemma();
-                if (text.contains(lemmaString)) {
-                    count++;
-                    text = text.replaceAll("(?i)" + lemmaString, "<b>" + lemmaString + "</b>");
-                    int start = text.indexOf("<b>") - 50;
-                    int end = text.indexOf("</b>") + 50;
-                    if (start < 0) start = 0;
-                    if (end > text.length()) end = text.length() - 1;
-                    snippet = "..." + text.substring(start, end) + "...";
-                } else lemmaToRemove.add(lemma);
-            }
-            lemmaSet.removeAll(lemmaToRemove);
-            if (count > 0) {
+            String snippet = createSnippet(text, lemmaSet);
+            if (snippet.length() > 0) {
                 SearchResult searchResult = new SearchResult();
                 searchResult.setTitle(document.title());
                 searchResult.setRelevance(indexRank.getRRel());
@@ -122,5 +113,23 @@ public final class SearchEngine {
             }
         });
         return searchResults;
+    }
+
+    private String createSnippet(String text, Set<Lemma> lemmaSet) {
+        String snippet = "";
+        Set<Lemma> lemmaToRemove = new HashSet<>();
+        for (Lemma lemma : lemmaSet) {
+            String lemmaString = lemma.getLemmaString();
+            if (text.contains(lemmaString)) {
+                text = text.replaceAll("(?i)" + lemmaString, "<b>" + lemmaString + "</b>");
+                int start = text.indexOf("<b>") - 50;
+                int end = text.indexOf("</b>") + 50;
+                if (start < 0) start = 0;
+                if (end >= text.length()) end = text.length() - 1;
+                snippet = "..." + text.substring(start, end) + "...";
+            } else lemmaToRemove.add(lemma);
+        }
+        lemmaSet.removeAll(lemmaToRemove);
+        return snippet;
     }
 }

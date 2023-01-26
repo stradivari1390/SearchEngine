@@ -7,10 +7,10 @@ public class WebParsersStorage {
 
     private AtomicBoolean terminationInProcess;
     private static WebParsersStorage instance;
-    private CopyOnWriteArraySet<WebParser> webParsersStorage;
+    private CopyOnWriteArraySet<WebParser> webParsersSet;
 
     private WebParsersStorage() {
-        webParsersStorage = new CopyOnWriteArraySet<>();
+        webParsersSet = new CopyOnWriteArraySet<>();
         terminationInProcess = new AtomicBoolean(false);
     }
 
@@ -22,16 +22,16 @@ public class WebParsersStorage {
     }
 
     public void add(WebParser webParser) {
-        webParsersStorage.add(webParser);
+        webParsersSet.add(webParser);
     }
 
     public void remove(WebParser webParser) {
-        webParsersStorage.remove(webParser);
+        webParsersSet.remove(webParser);
     }
 
     public void terminateAll() {
-        webParsersStorage.forEach(w -> w.cancel(true));
-        webParsersStorage.clear();
+        webParsersSet.forEach(w -> w.cancel(true));
+        webParsersSet.clear();
     }
 
     public AtomicBoolean isTerminationInProcess() {

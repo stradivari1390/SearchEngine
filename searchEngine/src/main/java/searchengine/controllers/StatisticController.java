@@ -30,7 +30,7 @@ public class StatisticController {
     public ResponseEntity<JSONObject> statistics() {
         logger.info("Received request to get statistics");
         Response statisticsResponse = statisticsService.getStatistics();
-        logger.info(statisticsResponse.toString());
+        logger.info(statisticsResponse);
         return new ResponseEntity<>(statisticsResponse.get(), statisticsResponse.getHttpStatus());
     }
 }

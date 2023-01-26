@@ -1,15 +1,14 @@
 package searchengine.responses;
 
-import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 
-public class ErrorResponse extends Response {
+public class ErrorResponse implements Response {
 
     JSONObject response;
     HttpStatus httpStatus;
 
-    public ErrorResponse(JSONObject jsonObject, HttpStatus httpStatus) throws JSONException {
+    public ErrorResponse(JSONObject jsonObject, HttpStatus httpStatus) {
         response = jsonObject;
         this.httpStatus = httpStatus;
     }

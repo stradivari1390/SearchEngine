@@ -1,22 +1,22 @@
 package searchengine.responses;
 
 import lombok.Data;
+import lombok.SneakyThrows;
 import org.springframework.boot.configurationprocessor.json.JSONArray;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 import searchengine.dto.search.SearchResult;
+import searchengine.exceptions.SearchResultException;
 
 import java.util.Set;
 import java.util.TreeSet;
 
 @Data
-public class SearchResponse extends Response {
+public class SearchResponse implements Response {
 
     private boolean result;
-
     private int count;
-
     private Set<SearchResult> searchResultSet;
     private HttpStatus httpStatus;
 
@@ -32,6 +32,7 @@ public class SearchResponse extends Response {
         setCount(searchResultSet.size());
     }
 
+    @SneakyThrows
     @Override
     public JSONObject get() {
 
@@ -57,7 +58,7 @@ public class SearchResponse extends Response {
             }
             response.put("data", array);
         } catch (JSONException e) {
-            throw new RuntimeException(e);
+            throw new SearchResultException(e);
         }
         return response;
     }

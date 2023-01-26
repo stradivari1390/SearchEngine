@@ -1,6 +1,7 @@
 package searchengine.controllers;
 
 
+import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,15 +25,16 @@ public class SearchingController {
         this.searchingService = searchingService;
     }
 
+    @SneakyThrows
     @Transactional
     @GetMapping(value = "/search")
     public ResponseEntity<JSONObject> search(@RequestParam(name = "query", required = false) String query,
                                              @RequestParam(name = "site", required = false) String site,
                                              @RequestParam(name = "offset", defaultValue = "0") int offset,
                                              @RequestParam(name = "limit", defaultValue = "20") int limit) {
-        logger.info("Received request to search: " + query);
+        logger.info("Received request to search: {}", query);
         Response searchResponse = searchingService.search(query, site, offset, limit);
-        logger.info(searchResponse.toString());
+        logger.info(searchResponse);
         return new ResponseEntity<>(searchResponse.get(), searchResponse.getHttpStatus());
     }
 }
