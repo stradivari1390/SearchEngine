@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="morph-1.5">
-    <CLASSES>
-      <root url="jar://$PROJECT_DIR$/src/main/resources/lib/morphology/morph/1.5/morph-1.5.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

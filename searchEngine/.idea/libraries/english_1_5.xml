@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="english-1.5">
-    <CLASSES>
-      <root url="jar://$PROJECT_DIR$/src/main/resources/lib/morphology/english/1.5/english-1.5.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>
