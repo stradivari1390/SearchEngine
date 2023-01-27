@@ -33,4 +33,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -f https://github.com/stradivari1390/SearchEngine/blob/c41c496d59d8fd6b7cbaa029aa19fa1fbcd0c5ca/searchEngine/pom.xml -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=stradivari1390_SearchEngine
+        run: mvn -f searchEngine/pom.xml -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=stradivari1390_SearchEngine
