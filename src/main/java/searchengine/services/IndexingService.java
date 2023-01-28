@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import searchengine.config.InitSiteList;
 import searchengine.dto.WebParsersStorage;
 import searchengine.exceptions.EmptyLinkException;
-import searchengine.exceptions.WebParserException;
 import searchengine.model.Site;
 import searchengine.model.StatusType;
 import searchengine.repository.*;

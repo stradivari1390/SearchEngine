@@ -173,7 +173,7 @@ public class WebParser extends RecursiveAction {
         lemmaRankMap.forEach((lemmaString, rank) -> {
             Lemma lemma;
             synchronized (lemmaRepository) {
-                lemma = lemmaRepository.findLemmaByLemmaAndSite(lemmaString, page.getSite());
+                lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, page.getSite());
 
                 if (lemma == null) {
                     lemma = new Lemma(page.getSite(), lemmaString);

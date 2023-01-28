@@ -66,7 +66,7 @@ public final class SearchEngine {
     private Set<SearchResult> addSearchQuery(Site site, String query, List<Page> pageList) {
         Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
         Set<Lemma> lemmaSet = new HashSet<>();
-        lemmas.keySet().forEach(lemma -> lemmaSet.add(lemmaRepository.findLemmaByLemmaAndSite(lemma, site)));
+        lemmas.keySet().forEach(lemma -> lemmaSet.add(lemmaRepository.findLemmaByLemmaStringAndSite(lemma, site)));
         List<IndexRank> indexRanks = getIndexRanks(lemmaSet, pageList);
         return getSearchResults(indexRanks, lemmaSet, site);
     }
