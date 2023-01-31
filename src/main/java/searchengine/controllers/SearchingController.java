@@ -16,17 +16,16 @@ import searchengine.services.SearchingService;
 @RequestMapping("/api")
 public class SearchingController {
 
-    @Autowired
-    private SearchingService searchingService;
+    private final SearchingService searchingService;
 
     private static final Logger logger = LogManager.getLogger(SearchingController.class);
 
+    @Autowired
     public SearchingController(SearchingService searchingService) {
         this.searchingService = searchingService;
     }
 
     @SneakyThrows
-    @Transactional
     @GetMapping(value = "/search")
     public ResponseEntity<JSONObject> search(@RequestParam(name = "query", required = false) String query,
                                              @RequestParam(name = "site", required = false) String site,

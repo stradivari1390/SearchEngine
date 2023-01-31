@@ -16,16 +16,15 @@ import searchengine.services.StatisticsService;
 @RequestMapping("/api")
 public class StatisticController {
 
-    @Autowired
     private final StatisticsService statisticsService;
 
     private static final Logger logger = LogManager.getLogger(StatisticController.class);
 
+    @Autowired
     public StatisticController(StatisticsService statisticsService) {
         this.statisticsService = statisticsService;
     }
 
-    @Transactional
     @GetMapping("/statistics")
     public ResponseEntity<JSONObject> statistics() {
         logger.info("Received request to get statistics");
