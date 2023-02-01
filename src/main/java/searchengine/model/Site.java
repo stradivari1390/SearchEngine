@@ -45,10 +45,10 @@ public class Site {
     @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String name;
 
-    @OneToMany(mappedBy = "site", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "site", fetch = FetchType.EAGER)
     private Set<Page> pages = new HashSet<>();
 
-    @OneToMany(mappedBy = "site", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "site", fetch = FetchType.EAGER)
     private Set<Lemma> lemmas = new HashSet<>();
 
     public void setStatus(StatusType status) {

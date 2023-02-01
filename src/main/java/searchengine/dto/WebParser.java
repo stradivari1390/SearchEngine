@@ -30,36 +30,29 @@ import searchengine.repository.PageRepository;
 
 @Component
 public class WebParser extends RecursiveAction {
-    private final transient Site site;
-    private final String url;
-    @Autowired
+    private transient Site site;
+    private String url;
     private transient InitSiteList initSiteList;
-    @Autowired
     private transient PageRepository pageRepository;
-    @Autowired
     private transient LemmaRepository lemmaRepository;
-    @Autowired
     private transient IndexRepository indexRepository;
-    @Autowired
     private transient Config config;
-    @Autowired
-    private transient Lemmatisator lemmatisator;
-
-    transient HtmlCleaner cleaner;
+    private transient HtmlCleaner cleaner;
     private final Set<String> links = new HashSet<>();
     private Set<String> visitedLinks;
 
-    public WebParser() {
-        site = new Site();
-        url = "";
-    }
-
-    public WebParser(String url, Site site, Set<String> visitedLinks) {
-
-        this.url = url;
-        this.site = site;
+    @Autowired
+    public WebParser(Set<String> visitedLinks, InitSiteList initSiteList,
+                     PageRepository pageRepository, LemmaRepository lemmaRepository,
+                     IndexRepository indexRepository, Config config) {
 
         this.visitedLinks = visitedLinks;
+
+        this.initSiteList = initSiteList;
+        this.pageRepository = pageRepository;
+        this.lemmaRepository = lemmaRepository;
+        this.indexRepository = indexRepository;
+        this.config = config;
 
         cleaner = new HtmlCleaner();
 
@@ -87,7 +80,9 @@ public class WebParser extends RecursiveAction {
 
             List<WebParser> parsers = new ArrayList<>();
             for (String link : links) {
-                WebParser parser = new WebParser(link, site, visitedLinks);
+                WebParser parser = new WebParser(visitedLinks, initSiteList, pageRepository,
+                        lemmaRepository, indexRepository, config);
+                parser.setSite(site, link);
                 parser.fork();
                 parsers.add(parser);
             }
@@ -168,7 +163,9 @@ public class WebParser extends RecursiveAction {
         }
     }
 
+    @SneakyThrows
     private void addLemmaAndIndex(String text, Page page, boolean isNewPage) {
+        Lemmatisator lemmatisator = Lemmatisator.getInstance();
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(text);
         lemmaRankMap.forEach((lemmaString, rank) -> {
             Lemma lemma;
@@ -207,5 +204,10 @@ public class WebParser extends RecursiveAction {
 
     public Site getSite() {
         return site;
+    }
+
+    public void setSite(Site site, String url) {
+        this.site = site;
+        this.url = url;
     }
 }

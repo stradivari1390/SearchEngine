@@ -1,6 +1,7 @@
 package searchengine.dto.search;
 
 import lombok.Data;
+import lombok.SneakyThrows;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,25 +23,19 @@ import java.util.*;
 @Data
 public final class SearchEngine {
 
-    @Autowired
-    private final Lemmatisator lemmatisator;
-    @Autowired
-    private final IndexRepository indexRepository;
-    @Autowired
-    private final PageRepository pageRepository;
-    @Autowired
-    private final SiteRepository siteRepository;
-    @Autowired
-    private final LemmaRepository lemmaRepository;
+    private Lemmatisator lemmatisator;
+    private IndexRepository indexRepository;
+    private PageRepository pageRepository;
+    private SiteRepository siteRepository;
+    private LemmaRepository lemmaRepository;
 
+    @Autowired
     public SearchEngine(SiteRepository siteRepository, PageRepository pageRepository,
-                        LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                        Lemmatisator lemmatisator) {
+                        LemmaRepository lemmaRepository, IndexRepository indexRepository) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
-        this.lemmatisator = lemmatisator;
     }
 
     public SearchResponse search(String query, Site site) {
@@ -58,12 +53,15 @@ public final class SearchEngine {
         return searchResponse;
     }
 
+    @SneakyThrows
     private Set<SearchResult> getSearchesBySite(String query, Site site) {
         List<Page> pageList = pageRepository.findAllBySite(site);
         return addSearchQuery(site, query, pageList);
     }
 
+    @SneakyThrows
     private Set<SearchResult> addSearchQuery(Site site, String query, List<Page> pageList) {
+        lemmatisator = Lemmatisator.getInstance();
         Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
         Set<Lemma> lemmaSet = new HashSet<>();
         lemmas.keySet().forEach(lemma -> lemmaSet.add(lemmaRepository.findLemmaByLemmaStringAndSite(lemma, site)));

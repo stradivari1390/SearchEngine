@@ -3,16 +3,12 @@ package searchengine.dto;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
+
 import searchengine.exceptions.LemmatizationException;
 
 import java.io.IOException;
 import java.util.*;
 
-@Component
-@Scope(scopeName = ConfigurableBeanFactory.SCOPE_SINGLETON)
 public class Lemmatisator {
 
     private static Lemmatisator instance;

@@ -10,6 +10,7 @@ import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import searchengine.config.Config;
 import searchengine.config.InitSiteList;
 import searchengine.dto.WebParsersStorage;
 import searchengine.exceptions.EmptyLinkException;
@@ -34,21 +35,30 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class IndexingService {
 
     private static final Logger logger = LogManager.getLogger(IndexingService.class);
-    @Autowired
     private SiteRepository siteRepository;
-    @Autowired
     private PageRepository pageRepository;
-    @Autowired
     private LemmaRepository lemmaRepository;
-    @Autowired
     private IndexRepository indexRepository;
-    @Autowired
     private InitSiteList initSiteList;
+    private Config config;
 
     private List<Thread> threadList;
     private List<ForkJoinPool> forkJoinPoolList;
     private List<WebParser> webParserList;
+    private Thread startIndexingThread;
     static AtomicBoolean isIndexing = new AtomicBoolean(false);
+
+    @Autowired
+    public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
+                           LemmaRepository lemmaRepository, IndexRepository indexRepository,
+                           InitSiteList initSiteList, Config config) {
+        this.siteRepository = siteRepository;
+        this.pageRepository = pageRepository;
+        this.lemmaRepository = lemmaRepository;
+        this.indexRepository = indexRepository;
+        this.initSiteList = initSiteList;
+        this.config = config;
+    }
 
     private void clearData() {
         indexRepository.deleteAll();
@@ -83,8 +93,10 @@ public class IndexingService {
             Site site = new Site(initSiteUrl, initSite.getName());
             site.setStatus(StatusType.INDEXING);
             siteRepository.save(site);
-
-            webParserList.add(new WebParser(initSiteUrl, site, new HashSet<>()));
+            WebParser webParser = new WebParser(new HashSet<>(), initSiteList, pageRepository,
+                    lemmaRepository, indexRepository, config);
+            webParser.setSite(site, initSiteUrl);
+            webParserList.add(webParser);
         }
         isIndexing.set(true);
         for (WebParser webParser : webParserList) {
@@ -103,7 +115,7 @@ public class IndexingService {
             threadList.add(thread);
         }
 
-        Thread startIndexingThread = new Thread(() -> {
+        startIndexingThread = new Thread(() -> {
             threadList.forEach(Thread::start);
             for (Thread thread : threadList) {
                 try {
@@ -118,7 +130,6 @@ public class IndexingService {
             isIndexing.set(false);
         });
         startIndexingThread.start();
-        threadList.add(startIndexingThread);
         return new IndexResponse("startIndexing", false);
     }
 
@@ -128,6 +139,7 @@ public class IndexingService {
             return new IndexResponse("stopIndexing", false);
         }
         WebParsersStorage.getInstance().isTerminationInProcess().set(true);
+        startIndexingThread.interrupt();
         Iterator<Thread> iterator = threadList.iterator();
         while (iterator.hasNext()) {
             Thread thread = iterator.next();
@@ -187,8 +199,9 @@ public class IndexingService {
                 site.setStatus(StatusType.INDEXING);
                 siteRepository.save(site);
 
-                WebParser webParser = new WebParser(url, site, new HashSet<>());
-
+                WebParser webParser = new WebParser(new HashSet<>(), initSiteList, pageRepository,
+                        lemmaRepository, indexRepository, config);
+                webParser.setSite(site, url);
                 webParser.addPage(url);
 
                 site.setStatus(StatusType.INDEXED);

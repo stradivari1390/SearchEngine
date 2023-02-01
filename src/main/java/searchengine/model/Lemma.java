@@ -41,7 +41,7 @@ public class Lemma implements Comparable<Lemma>{
     private String lemmaString;
 
     @ToString.Include
-    @Column(name = "frequency", nullable = false) //, columnDefinition = "integer default 1")  ToDo: figure out why doesnt work
+    @Column(name = "frequency", nullable = false)
     private int frequency = 1;
 
     @OneToMany(mappedBy = "lemma", fetch = FetchType.LAZY)
