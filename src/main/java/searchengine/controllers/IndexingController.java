@@ -4,7 +4,6 @@ import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.responses.Response;
@@ -24,27 +23,27 @@ public class IndexingController {
     }
 
     @GetMapping("/startIndexing")
-    public ResponseEntity<JSONObject> startIndexing() {
+    public ResponseEntity<Response> startIndexing() {
         logger.info("Received request to start indexing");
         Response startIndexingResponse = indexingService.startIndexing();
         logger.info("Indexing started: {}", startIndexingResponse);
-        return new ResponseEntity<>(startIndexingResponse.get(), startIndexingResponse.getHttpStatus());
+        return new ResponseEntity<>(startIndexingResponse, startIndexingResponse.getHttpStatus());
     }
 
     @GetMapping("/stopIndexing")
-    public ResponseEntity<JSONObject> stopIndexing() {
+    public ResponseEntity<Response> stopIndexing() {
         logger.info("Received request to stop indexing");
         Response stopIndexingResponse = indexingService.stopIndexing();
         logger.info("Indexing stopped: {}", stopIndexingResponse);
-        return new ResponseEntity<>(stopIndexingResponse.get(), stopIndexingResponse.getHttpStatus());
+        return new ResponseEntity<>(stopIndexingResponse, stopIndexingResponse.getHttpStatus());
     }
 
     @SneakyThrows
     @PostMapping("/indexPage")
-    public ResponseEntity<JSONObject> indexPage(@RequestParam(name = "url") String url) {
+    public ResponseEntity<Response> indexPage(@RequestParam(name = "url") String url) {
         logger.info("Received request to index a page: {}", url);
         Response indexPageResponse = indexingService.indexPage(url);
         logger.info("Page: {}, -- indexed: {}", url, indexPageResponse);
-        return new ResponseEntity<>(indexPageResponse.get(), indexPageResponse.getHttpStatus());
+        return new ResponseEntity<>(indexPageResponse, indexPageResponse.getHttpStatus());
     }
 }
