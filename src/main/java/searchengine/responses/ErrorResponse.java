@@ -1,17 +1,14 @@
 package searchengine.responses;
 
+import lombok.AllArgsConstructor;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 
+@AllArgsConstructor
 public class ErrorResponse implements Response {
 
-    JSONObject response;
-    HttpStatus httpStatus;
-
-    public ErrorResponse(JSONObject jsonObject, HttpStatus httpStatus) {
-        response = jsonObject;
-        this.httpStatus = httpStatus;
-    }
+    private JSONObject response;
+    private HttpStatus httpStatus;
 
     @Override
     public JSONObject get() {

@@ -5,7 +5,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.RecursiveAction;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
+import lombok.Setter;
 import lombok.SneakyThrows;
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
@@ -32,64 +34,66 @@ import searchengine.repository.PageRepository;
 public class WebParser extends RecursiveAction {
     private transient Site site;
     private String url;
-    private transient InitSiteList initSiteList;
-    private transient PageRepository pageRepository;
-    private transient LemmaRepository lemmaRepository;
-    private transient IndexRepository indexRepository;
-    private transient Config config;
-    private transient HtmlCleaner cleaner;
+    @Setter
+    private static InitSiteList initSiteList;
+    private final transient PageRepository pageRepository;
+    private final transient LemmaRepository lemmaRepository;
+    private final transient IndexRepository indexRepository;
+    private final transient Config config;
+    private final transient HtmlCleaner cleaner;
     private final Set<String> links = new HashSet<>();
     private Set<String> visitedLinks;
+    private static Pattern root;
+    private static Pattern file;
+    private static Pattern pageElement;
+    private static Pattern contactLink;
 
     @Autowired
-    public WebParser(Set<String> visitedLinks, InitSiteList initSiteList,
+    public WebParser(Set<String> visitedLinks,
                      PageRepository pageRepository, LemmaRepository lemmaRepository,
                      IndexRepository indexRepository, Config config) {
-
         this.visitedLinks = visitedLinks;
-
-        this.initSiteList = initSiteList;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.config = config;
 
         cleaner = new HtmlCleaner();
-
         WebParsersStorage.getInstance().add(this);
     }
 
     @SneakyThrows
     @Override
-    protected void compute() {
-        while (!WebParsersStorage.getInstance().isTerminationInProcess().get()) {
-            if (visitedLinks.contains(cleanUrl(url))) {
-                return;
-            }
-            visitedLinks.add(cleanUrl(url));
-            HashMap<String, Integer> html = getHtmlAndCollectLinks(url);
-            int code = (int) html.values().toArray()[0];
-            String content = String.valueOf(html.keySet().toArray()[0]);
+    public void compute() {
+        if (WebParsersStorage.getInstance().isTerminationInProcess().get()
+                || visitedLinks.contains(cleanUrl(url))) {
+            return;
+        }
+        visitedLinks.add(cleanUrl(url));
+        HashMap<String, Integer> htmlData = getHtmlAndCollectLinks(url);
+        int code = htmlData.values().iterator().next();
+        String content = htmlData.keySet().iterator().next();
 
-            Page page = new Page(site, cleanUrl(url), code, content);
-            pageRepository.save(page);
+        Page page = new Page(site, cleanUrl(url), code, content);
+        pageRepository.save(page);
 
-            TagNode node = cleaner.clean(content);
-            String plainText = cleaner.getInnerHtml(node);
-            addLemmaAndIndex(plainText, page, true);
+        TagNode node = cleaner.clean(content);
+        String plainText = node.getText().toString();
+        addLemmaAndIndex(plainText, page, true);
 
-            List<WebParser> parsers = new ArrayList<>();
-            for (String link : links) {
-                WebParser parser = new WebParser(visitedLinks, initSiteList, pageRepository,
-                        lemmaRepository, indexRepository, config);
-                parser.setSite(site, link);
-                parser.fork();
-                parsers.add(parser);
-            }
-            for (WebParser parser : parsers) {
-                parser.join();
-                WebParsersStorage.getInstance().remove(parser);
-            }
+        List<WebParser> parsers = links.stream()
+                .map(link -> {
+                    WebParser parser = new WebParser(visitedLinks, pageRepository,
+                            lemmaRepository, indexRepository, config);
+                    parser.setSite(site, link);
+                    parser.fork();
+                    return parser;
+                })
+                .collect(Collectors.toList());
+
+        for (WebParser parser : parsers) {
+            parser.join();
+            WebParsersStorage.getInstance().remove(parser);
         }
     }
 
@@ -119,18 +123,20 @@ public class WebParser extends RecursiveAction {
         return result;
     }
 
-    private boolean isValidLink(String link) {
+    public static void initiateValidationPatterns() {
         StringBuilder rootPatterns = new StringBuilder();
         for (searchengine.config.Site initSite : initSiteList.getSites()) {
             rootPatterns.append("^").append(initSite.getUrl()).append("|");
         }
         String rootPattern = rootPatterns.deleteCharAt(rootPatterns.length() - 1).toString();
-        Pattern root = Pattern.compile(rootPattern);
-        Pattern file = Pattern.compile("(\\.(?i)(jpg|bmp|png|gif|pdf|doc|xls|ppt" +
+        root = Pattern.compile(rootPattern);
+        file = Pattern.compile("(\\.(?i)(jpg|bmp|png|gif|pdf|doc|xls|ppt" +
                 "|jpeg|zip|tar|jar|gz|svg|pptx|docx|xlsx))$");
-        Pattern pageElement = Pattern.compile("#");
-        Pattern contactLink = Pattern.compile("(?i)(tel:|tg:|mailto:)");
+        pageElement = Pattern.compile("#");
+        contactLink = Pattern.compile("(?i)(tel:|tg:|mailto:)");
+    }
 
+    private boolean isValidLink(String link) {
         return !file.matcher(link).find() &&
                 !pageElement.matcher(link).find() &&
                 !contactLink.matcher(link).find() &&
@@ -158,7 +164,7 @@ public class WebParser extends RecursiveAction {
         pageRepository.save(page);
         if (code < 400) {
             TagNode node = cleaner.clean(content);
-            String plainText = cleaner.getInnerHtml(node);
+            String plainText = node.getText().toString();
             addLemmaAndIndex(plainText, page, isNewPage);
         }
     }

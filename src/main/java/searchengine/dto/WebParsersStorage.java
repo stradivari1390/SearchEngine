@@ -5,8 +5,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class WebParsersStorage {
 
-    private AtomicBoolean terminationInProcess;
     private static WebParsersStorage instance;
+    private AtomicBoolean terminationInProcess;
     private CopyOnWriteArraySet<WebParser> webParsersSet;
 
     private WebParsersStorage() {
@@ -36,5 +36,9 @@ public class WebParsersStorage {
 
     public AtomicBoolean isTerminationInProcess() {
         return terminationInProcess;
+    }
+
+    public void setTerminationInProcess(boolean b) {
+        terminationInProcess.set(b);
     }
 }

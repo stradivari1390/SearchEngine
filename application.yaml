@@ -15,6 +15,12 @@ server:
   port: 8080
 
 spring:
+  thymeleaf:
+    prefix: classpath:/templates/
+  mvc:
+    log-request-details: true
+    view:
+      suffix: .html
   jackson:
     serialization:
       fail-on-empty-beans: false

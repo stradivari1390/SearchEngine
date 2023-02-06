@@ -13,7 +13,7 @@ public class Lemmatisator {
 
     private static Lemmatisator instance;
 
-    private final String[] redundantForms = {"ПРЕДЛ", "СОЮЗ", "МЕЖД", "ВВОДН", "ЧАСТ", "МС", "CONJ", "PART"};
+    private static final String[] redundantForms = {"ПРЕДЛ", "СОЮЗ", "МЕЖД", "ВВОДН", "ЧАСТ", "МС", "CONJ", "PART"};
     private final LuceneMorphology russianMorph;
     private final LuceneMorphology englishMorph;
 
@@ -73,17 +73,17 @@ public class Lemmatisator {
 
     public Map<String, Integer> collectLemmasAndRanks(String text) {
 
-        String[] words = text.toLowerCase().split("[^a-zа-я-]+");
+        String[] words = text.toLowerCase().split("[^a-zа-я]+");
         HashMap<String, Integer> lemmas = new HashMap<>();
 
         for (String word : words) {
             if (word.isBlank() || word.length() < 3 ||
-                    (!checkLanguage(word).equals("Rus") || !isCorrectRussianWord(word)) ||
-                    (!checkLanguage(word).equals("Eng") || !isCorrectEnglishWord(word)) ||
+                    checkLanguage(word).equals("Rus") && !isCorrectRussianWord(word) ||
+                    checkLanguage(word).equals("Eng") && !isCorrectEnglishWord(word) ||
                     checkLanguage(word).equals("Unidentified")) {
                 continue;
             }
-            List<String> normalForms = (checkLanguage(word).equals("Rus")) ?
+            List<String> normalForms = checkLanguage(word).equals("Rus") ?
                     russianMorph.getNormalForms(word) : englishMorph.getNormalForms(word);
             String normalWord = normalForms.get(0);
             lemmas.put(normalWord, lemmas.containsKey(normalWord) ? (lemmas.get(normalWord) + 1) : 1);

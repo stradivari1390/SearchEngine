@@ -14,7 +14,6 @@ import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 import searchengine.dto.Lemmatisator;
-import searchengine.responses.SearchResponse;
 
 import java.util.*;
 
@@ -38,7 +37,7 @@ public final class SearchEngine {
         this.indexRepository = indexRepository;
     }
 
-    public SearchResponse search(String query, Site site) {
+    public Search search(String query, Site site) {
         Set<SearchResult> searchResults;
         if (site == null) {
             searchResults = new TreeSet<>();
@@ -46,11 +45,11 @@ public final class SearchEngine {
         } else {
             searchResults = getSearchesBySite(query, site);
         }
-        SearchResponse searchResponse = new SearchResponse();
-        searchResponse.setCount(searchResults.size());
-        searchResponse.setResult(true);
-        searchResponse.setSearchResultSet(searchResults);
-        return searchResponse;
+        Search search = new Search();
+        search.setCount(searchResults.size());
+        search.setResult(true);
+        search.setSearchResultSet(searchResults);
+        return search;
     }
 
     @SneakyThrows
