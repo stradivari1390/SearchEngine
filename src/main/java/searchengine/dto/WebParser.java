@@ -32,15 +32,17 @@ import searchengine.repository.PageRepository;
 
 @Component
 public class WebParser extends RecursiveAction {
-    private transient Site site;
+//    private static final long serialVersionUID = 1L;
+    private Site site;
     private String url;
     @Setter
     private static InitSiteList initSiteList;
-    private final transient PageRepository pageRepository;
-    private final transient LemmaRepository lemmaRepository;
-    private final transient IndexRepository indexRepository;
-    private final transient Config config;
-    private final transient HtmlCleaner cleaner;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
+    private final Config config;
+    private final Lemmatisator lemmatisator;
+    private final HtmlCleaner cleaner;
     private final Set<String> links = new HashSet<>();
     private Set<String> visitedLinks;
     private static Pattern root;
@@ -51,12 +53,13 @@ public class WebParser extends RecursiveAction {
     @Autowired
     public WebParser(Set<String> visitedLinks,
                      PageRepository pageRepository, LemmaRepository lemmaRepository,
-                     IndexRepository indexRepository, Config config) {
+                     IndexRepository indexRepository, Config config, Lemmatisator lemmatisator) {
         this.visitedLinks = visitedLinks;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.config = config;
+        this.lemmatisator = lemmatisator;
 
         cleaner = new HtmlCleaner();
         WebParsersStorage.getInstance().add(this);
@@ -75,8 +78,8 @@ public class WebParser extends RecursiveAction {
         String content = htmlData.keySet().iterator().next();
 
         Page page = new Page(site, cleanUrl(url), code, content);
-        pageRepository.save(page);
 
+        pageRepository.save(page);
         TagNode node = cleaner.clean(content);
         String plainText = node.getText().toString();
         addLemmaAndIndex(plainText, page, true);
@@ -84,7 +87,7 @@ public class WebParser extends RecursiveAction {
         List<WebParser> parsers = links.stream()
                 .map(link -> {
                     WebParser parser = new WebParser(visitedLinks, pageRepository,
-                            lemmaRepository, indexRepository, config);
+                            lemmaRepository, indexRepository, config, lemmatisator);
                     parser.setSite(site, link);
                     parser.fork();
                     return parser;
@@ -108,7 +111,8 @@ public class WebParser extends RecursiveAction {
                     .execute();
             document = response.parse();
         } catch (IOException e) {
-            throw new WebParserException("Error occurred while trying to parse HTML and collect links", e);
+            throw new WebParserException("Error occurred while trying to establish connection, " +
+                    "parse HTML and collect links", e);
         }
         Elements linkElements = document.select("a[href]");
         for (Element linkElement : linkElements) {
@@ -169,17 +173,14 @@ public class WebParser extends RecursiveAction {
         }
     }
 
-    @SneakyThrows
     private void addLemmaAndIndex(String text, Page page, boolean isNewPage) {
-        Lemmatisator lemmatisator = Lemmatisator.getInstance();
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(text);
         lemmaRankMap.forEach((lemmaString, rank) -> {
             Lemma lemma;
             synchronized (lemmaRepository) {
-                lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, page.getSite());
-
+                lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
                 if (lemma == null) {
-                    lemma = new Lemma(page.getSite(), lemmaString);
+                    lemma = new Lemma(site, lemmaString);
                 } else {
                     lemma.setFrequency(lemma.getFrequency() + 1);
                 }

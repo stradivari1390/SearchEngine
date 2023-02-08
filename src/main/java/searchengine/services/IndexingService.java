@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
+import searchengine.dto.Lemmatisator;
 import searchengine.dto.WebParsersStorage;
 import searchengine.exceptions.EmptyLinkException;
 import searchengine.model.Site;
@@ -36,6 +37,7 @@ public class IndexingService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final InitSiteList initSiteList;
+    private final Lemmatisator lemmatisator;
     private final Config config;
     private List<WebParser> webParserList = new ArrayList<>();
     private Thread startIndexingThread;
@@ -44,13 +46,14 @@ public class IndexingService {
     @Autowired
     public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
                            LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                           InitSiteList initSiteList, Config config) {
+                           InitSiteList initSiteList, Config config, Lemmatisator lemmatisator) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.initSiteList = initSiteList;
         this.config = config;
+        this.lemmatisator = lemmatisator;
     }
 
     private void clearData() {
@@ -75,7 +78,7 @@ public class IndexingService {
             site.setStatus(StatusType.INDEXING);
             siteRepository.save(site);
             WebParser webParser = new WebParser(new HashSet<>(), pageRepository,
-                    lemmaRepository, indexRepository, config);
+                    lemmaRepository, indexRepository, config, lemmatisator);
             webParser.setSite(site, initSite.getUrl());
             webParserList.add(webParser);
         }
@@ -143,7 +146,7 @@ public class IndexingService {
         WebParser.setInitSiteList(initSiteList);
         WebParser.initiateValidationPatterns();
         WebParser webParser = new WebParser(new HashSet<>(), pageRepository,
-                lemmaRepository, indexRepository, config);
+                lemmaRepository, indexRepository, config, lemmatisator);
         webParser.setSite(site, url);
         webParser.addPage(url);
         site.setStatus(StatusType.INDEXED);

@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class WebParsersStorage {
 
-    private static WebParsersStorage instance;
+    private static volatile WebParsersStorage instance;
     private AtomicBoolean terminationInProcess;
     private CopyOnWriteArraySet<WebParser> webParsersSet;
 
@@ -15,8 +15,10 @@ public class WebParsersStorage {
     }
 
     public static WebParsersStorage getInstance() {
-        if (instance == null) {
-            instance = new WebParsersStorage();
+        synchronized(WebParsersStorage.class) {
+            if (instance == null) {
+                instance = new WebParsersStorage();
+            }
         }
         return instance;
     }

@@ -4,33 +4,26 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 
+import org.springframework.stereotype.Component;
 import searchengine.exceptions.LemmatizationException;
 
 import java.io.IOException;
 import java.util.*;
 
+@Component
 public class Lemmatisator {
-
-    private static Lemmatisator instance;
 
     private static final String[] redundantForms = {"ПРЕДЛ", "СОЮЗ", "МЕЖД", "ВВОДН", "ЧАСТ", "МС", "CONJ", "PART"};
     private final LuceneMorphology russianMorph;
     private final LuceneMorphology englishMorph;
 
-    private Lemmatisator() throws LemmatizationException {
+    public Lemmatisator() throws LemmatizationException {
         try {
             russianMorph = new RussianLuceneMorphology();
             englishMorph = new EnglishLuceneMorphology();
         } catch (IOException e) {
             throw new LemmatizationException("An error occurred while initializing the Lemmatisator", e);
         }
-    }
-
-    public static Lemmatisator getInstance() throws LemmatizationException {
-        if (instance == null) {
-            instance = new Lemmatisator();
-        }
-        return instance;
     }
 
     private boolean isCorrectRussianWord(String word) {

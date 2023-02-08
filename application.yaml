@@ -15,17 +15,20 @@ server:
   port: 8080
 
 spring:
+  aop:
+    proxy-target-class: false
   thymeleaf:
     prefix: classpath:/templates/
-  mvc:
+  http:
     log-request-details: true
+  mvc:
     view:
       suffix: .html
   jackson:
     serialization:
       fail-on-empty-beans: false
   datasource:
-    driverClassName: com.mysql.cj.jdbc.Driver
+    driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: 12345678
     url: jdbc:mysql://localhost:3306/search_engine
@@ -48,4 +51,4 @@ logging:
     org.springframework.web.servlet.DispatcherServlet: trace
     request-details: trace
   config:
-    classpath: src/main/resources/log4j2.xml
+    classpath: log4j2.xml

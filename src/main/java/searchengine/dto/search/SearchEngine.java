@@ -60,7 +60,7 @@ public final class SearchEngine {
 
     @SneakyThrows
     private Set<SearchResult> addSearchQuery(Site site, String query, List<Page> pageList) {
-        lemmatisator = Lemmatisator.getInstance();
+        lemmatisator = new Lemmatisator();
         Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
         Set<Lemma> lemmaSet = new HashSet<>();
         lemmas.keySet().forEach(lemma -> lemmaSet.add(lemmaRepository.findLemmaByLemmaStringAndSite(lemma, site)));
