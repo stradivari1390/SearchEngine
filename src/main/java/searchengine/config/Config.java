@@ -6,12 +6,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConfigurationProperties("config")
+@ConfigurationProperties(prefix = "config")
 @Getter
 @Setter
 public class Config {
-
     private String userAgent;
-
     private String referrer;
 }

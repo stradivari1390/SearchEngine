@@ -3,6 +3,7 @@ package searchengine.dto;
 import java.io.IOException;
 
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -35,7 +36,7 @@ import searchengine.repository.PageRepository;
 public class WebParser extends RecursiveAction {
 //    private static final long serialVersionUID = 1L;
     private static final AtomicBoolean stop = new AtomicBoolean(false);
-    private static final int THRESHOLD = 10;
+    private static final int THRESHOLD = 8;
     @Getter
     @Setter
     private Site site;
@@ -48,7 +49,7 @@ public class WebParser extends RecursiveAction {
     private final Lemmatisator lemmatisator;
     private final HtmlCleaner cleaner;
     private List<String> foundLinks = new ArrayList<>();
-    private static List<String> visitedLinks = new ArrayList<>();
+    private static CopyOnWriteArrayList<String> visitedLinks = new CopyOnWriteArrayList<>();
     private List<String> toParseLinkList;
     private static Pattern root;
     private static Pattern file;
@@ -72,6 +73,7 @@ public class WebParser extends RecursiveAction {
     @Override
     public void compute() {
         if (stop.get()) {
+            cancel(true);
             return;
         }
         for(String link : toParseLinkList) {
@@ -189,12 +191,10 @@ public class WebParser extends RecursiveAction {
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(text);
         lemmaRankMap.forEach((lemmaString, rank) -> {
             Lemma lemma;
-            synchronized (lemmaRepository) {
                 lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
                 if (lemma == null) lemma = new Lemma(site, lemmaString);
                 else lemma.setFrequency(lemma.getFrequency() + 1);
                 lemmaRepository.save(lemma);
-            }
             Index index;
             if (isNewPage) index = new Index(lemma, page, rank);
             else {

@@ -1,19 +1,22 @@
 package searchengine.model;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.Hibernate;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode
-@ToString(onlyExplicitlyIncluded = true)
 @Entity
 @Table(uniqueConstraints={
         @UniqueConstraint(columnNames = {"lemma", "site_id"})
@@ -30,17 +33,14 @@ public class Lemma implements Comparable<Lemma>{
     @Column(name = "id", nullable = false)
     private int id;
 
-    @ToString.Include
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE, optional = false)
     @JoinColumn(name = "site_id", nullable = false, foreignKey = @ForeignKey(name = "FK_lemma_site"))
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
-    @ToString.Include
     @Column(name = "lemma", nullable = false, columnDefinition = "VARCHAR(255)")
     private String lemmaString;
 
-    @ToString.Include
     @Column(name = "frequency", nullable = false)
     private int frequency = 1;
 
@@ -55,5 +55,26 @@ public class Lemma implements Comparable<Lemma>{
             return -1;
         }
         return 0;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        Lemma lemma = (Lemma) o;
+        return id != 0 && Objects.equals(id, lemma.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "(" +
+                "id = " + id + ", " +
+                "lemmaString = " + lemmaString + ", " +
+                "frequency = " + frequency + ")";
     }
 }

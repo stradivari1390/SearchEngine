@@ -1,16 +1,17 @@
 package searchengine.model;
 
 import lombok.*;
+import org.hibernate.Hibernate;
 
 import javax.persistence.*;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode
 @ToString
 @Entity
 public class Site {
@@ -25,7 +26,6 @@ public class Site {
     @Column(name = "id", nullable = false)
     private int id;
 
-    @ToString.Include
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')")
     private StatusType status;
@@ -37,11 +37,9 @@ public class Site {
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
 
-    @ToString.Include
     @Column(name = "url", nullable = false, columnDefinition = "VARCHAR(255)")
     private String url;
 
-    @ToString.Include
     @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String name;
 
@@ -54,5 +52,18 @@ public class Site {
     public void setStatus(StatusType status) {
         this.status = status;
         this.setStatusTime(new Date());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        Site site = (Site) o;
+        return id != 0 && Objects.equals(id, site.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

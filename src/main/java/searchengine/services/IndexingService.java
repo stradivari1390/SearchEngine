@@ -23,6 +23,7 @@ import searchengine.responses.Response;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
@@ -41,6 +42,8 @@ public class IndexingService {
     private final Lemmatisator lemmatisator;
     private final Config config;
     private static AtomicBoolean indexing = new AtomicBoolean(false);
+    private static List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
+    private static List<Thread> threadList = new ArrayList<>();
 
     @Autowired
     public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
@@ -78,8 +81,10 @@ public class IndexingService {
                 site.setStatus(StatusType.INDEXING);
                 siteRepository.save(site);
 
-                new Thread(() -> {
+                CompletableFuture.runAsync(() -> new Thread(() -> {
+                    threadList.add(Thread.currentThread());
                     ForkJoinPool pool = new ForkJoinPool();
+                    forkJoinPoolList.add(pool);
                     WebParser webParser = new WebParser(pageRepository, lemmaRepository, indexRepository,
                             config, lemmatisator, new ArrayList<>(Collections.singleton(site.getUrl())));
                     webParser.setSite(site);
@@ -91,16 +96,22 @@ public class IndexingService {
                         latch.countDown();
                     } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();
+                        Thread.currentThread().interrupt();
                     }
-                }).start();
+                }).start());
             }
-            try {
-                latch.await();
-                indexing.set(false);
-                WebParser.clearVisitedLinks();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+
+            CompletableFuture.runAsync(() -> {
+                try {
+                    latch.await();
+                    indexing.set(false);
+                    WebParser.clearVisitedLinks();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    Thread.currentThread().interrupt();
+                }
+            });
+
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
         } else {
             return new IndexResponse(new JSONObject().put(RESULT, false)
@@ -112,6 +123,10 @@ public class IndexingService {
     public Response stopIndexing() {
         if (indexing.compareAndSet(true, false)) {
             WebParser.stopCrawling();
+            threadList.forEach(Thread::interrupt);
+            forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
+            threadList.clear();
+            forkJoinPoolList.clear();
             List<Site> sites = siteRepository.findAll();
             sites.forEach(site -> {
                 if (site.getStatus().equals(StatusType.INDEXING)) {
@@ -140,9 +155,14 @@ public class IndexingService {
                 throw new EmptyLinkException(e);
             }
         }
+        String siteName = getSiteName(url);
+        String siteUrl = getSiteUrl(url);
+        if(siteUrl == null) {
+            return new IndexResponse(new JSONObject().put(RESULT, false), HttpStatus.BAD_REQUEST);
+        }
         Site site = siteRepository.findByUrl(getSiteUrl(url));
         if (site == null) {
-            site = new Site(getSiteUrl(url), getSiteName(url));
+            site = new Site(siteUrl, siteName);
             siteRepository.save(site);
         }
         site.setStatus(StatusType.INDEXING);

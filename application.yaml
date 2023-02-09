@@ -15,18 +15,18 @@ server:
   port: 8080
 
 spring:
-  aop:
-    proxy-target-class: false
-  thymeleaf:
-    prefix: classpath:/templates/
+#  aop:
+#    proxy-target-class: false
+#  thymeleaf:
+#    prefix: classpath:/templates/
   http:
     log-request-details: true
   mvc:
     view:
       suffix: .html
-  jackson:
-    serialization:
-      fail-on-empty-beans: false
+#  jackson:
+#    serialization:
+#      fail-on-empty-beans: false
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
