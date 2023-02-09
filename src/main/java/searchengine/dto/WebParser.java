@@ -4,9 +4,10 @@ import java.io.IOException;
 
 import java.util.*;
 import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
+import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import org.htmlcleaner.HtmlCleaner;
@@ -33,8 +34,11 @@ import searchengine.repository.PageRepository;
 @Component
 public class WebParser extends RecursiveAction {
 //    private static final long serialVersionUID = 1L;
+    private static final AtomicBoolean stop = new AtomicBoolean(false);
+    private static final int THRESHOLD = 10;
+    @Getter
+    @Setter
     private Site site;
-    private String url;
     @Setter
     private static InitSiteList initSiteList;
     private final PageRepository pageRepository;
@@ -43,61 +47,69 @@ public class WebParser extends RecursiveAction {
     private final Config config;
     private final Lemmatisator lemmatisator;
     private final HtmlCleaner cleaner;
-    private final Set<String> links = new HashSet<>();
-    private Set<String> visitedLinks;
+    private List<String> foundLinks = new ArrayList<>();
+    private static List<String> visitedLinks = new ArrayList<>();
+    private List<String> toParseLinkList;
     private static Pattern root;
     private static Pattern file;
     private static Pattern pageElement;
     private static Pattern contactLink;
 
     @Autowired
-    public WebParser(Set<String> visitedLinks,
-                     PageRepository pageRepository, LemmaRepository lemmaRepository,
-                     IndexRepository indexRepository, Config config, Lemmatisator lemmatisator) {
-        this.visitedLinks = visitedLinks;
+    public WebParser(PageRepository pageRepository, LemmaRepository lemmaRepository,
+                     IndexRepository indexRepository, Config config, Lemmatisator lemmatisator,
+                     List<String> toParseLinkList) {
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.config = config;
         this.lemmatisator = lemmatisator;
-
+        this.toParseLinkList = toParseLinkList;
         cleaner = new HtmlCleaner();
-        WebParsersStorage.getInstance().add(this);
     }
 
     @SneakyThrows
     @Override
     public void compute() {
-        if (WebParsersStorage.getInstance().isTerminationInProcess().get()
-                || visitedLinks.contains(cleanUrl(url))) {
+        if (stop.get()) {
             return;
         }
-        visitedLinks.add(cleanUrl(url));
-        HashMap<String, Integer> htmlData = getHtmlAndCollectLinks(url);
-        int code = htmlData.values().iterator().next();
-        String content = htmlData.keySet().iterator().next();
+        for(String link : toParseLinkList) {
+            if(!visitedLinks.contains(cleanUrl(link))) {
+                visitedLinks.add(cleanUrl(link));
+                HashMap<String, Integer> htmlData = getHtmlAndCollectLinks(link);
 
-        Page page = new Page(site, cleanUrl(url), code, content);
+                int code = htmlData.values().iterator().next();
+                String content = htmlData.keySet().iterator().next();
+                Page page = new Page(site, cleanUrl(link), code, content);
+                pageRepository.save(page);
 
-        pageRepository.save(page);
-        TagNode node = cleaner.clean(content);
-        String plainText = node.getText().toString();
-        addLemmaAndIndex(plainText, page, true);
-
-        List<WebParser> parsers = links.stream()
-                .map(link -> {
-                    WebParser parser = new WebParser(visitedLinks, pageRepository,
-                            lemmaRepository, indexRepository, config, lemmatisator);
-                    parser.setSite(site, link);
-                    parser.fork();
-                    return parser;
-                })
-                .collect(Collectors.toList());
-
-        for (WebParser parser : parsers) {
-            parser.join();
-            WebParsersStorage.getInstance().remove(parser);
+                TagNode node = cleaner.clean(content);
+                String plainText = node.getText().toString();
+                addLemmaAndIndex(plainText, page, true);
+            }
         }
+
+        while (foundLinks.size() > THRESHOLD) {
+            List<String> foundLinkList = new ArrayList<>(foundLinks);
+            List<String> subList = foundLinkList.subList(0, THRESHOLD);
+
+            foundLinks = foundLinkList.subList(THRESHOLD, foundLinkList.size());
+
+            WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
+                    config, lemmatisator, subList);
+            task.setSite(site);
+
+            task.fork();
+        }
+
+        if (!foundLinks.isEmpty()) {
+            WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
+                    config, lemmatisator, new ArrayList<>(foundLinks));
+            task.setSite(site);
+            task.compute();
+        }
+        join();
     }
 
     private HashMap<String, Integer> getHtmlAndCollectLinks(String url) throws WebParserException {
@@ -117,7 +129,7 @@ public class WebParser extends RecursiveAction {
         Elements linkElements = document.select("a[href]");
         for (Element linkElement : linkElements) {
             String absUrl = linkElement.attr("abs:href");
-            if (absUrl.length() > 0 && isValidLink(absUrl)) links.add(absUrl);
+            if (absUrl.length() > 0 && isValidLink(absUrl)) foundLinks.add(absUrl);
         }
 
         String textHtml = document.html();
@@ -179,23 +191,16 @@ public class WebParser extends RecursiveAction {
             Lemma lemma;
             synchronized (lemmaRepository) {
                 lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
-                if (lemma == null) {
-                    lemma = new Lemma(site, lemmaString);
-                } else {
-                    lemma.setFrequency(lemma.getFrequency() + 1);
-                }
+                if (lemma == null) lemma = new Lemma(site, lemmaString);
+                else lemma.setFrequency(lemma.getFrequency() + 1);
                 lemmaRepository.save(lemma);
             }
             Index index;
-            if (isNewPage) {
-                index = new Index(lemma, page, rank);
-            } else {
+            if (isNewPage) index = new Index(lemma, page, rank);
+            else {
                 index = indexRepository.findByLemmaAndPage(lemma, page);
-                if (index == null) {
-                    index = new Index(lemma, page, rank);
-                } else {
-                    index.setRank(rank);
-                }
+                if (index == null) index = new Index(lemma, page, rank);
+                else index.setRank(rank);
             }
             indexRepository.save(index);
         });
@@ -209,12 +214,11 @@ public class WebParser extends RecursiveAction {
         return cleanUrl;
     }
 
-    public Site getSite() {
-        return site;
+    public static void stopCrawling() {
+        stop.set(true);
     }
 
-    public void setSite(Site site, String url) {
-        this.site = site;
-        this.url = url;
+    public static void clearVisitedLinks() {
+        visitedLinks.clear();
     }
 }

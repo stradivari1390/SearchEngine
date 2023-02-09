@@ -61,7 +61,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             allSites.getAndIncrement();
         });
         TotalStatistics total = new TotalStatistics(allSites.get(), allPages.get(),
-                allLemmas.get(), IndexingService.isIndexing.get());
+                allLemmas.get(), IndexingService.isIndexing());
         statistic.setTotal(total);
         return statistic;
     }

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
 import searchengine.dto.Lemmatisator;
-import searchengine.dto.WebParsersStorage;
 import searchengine.exceptions.EmptyLinkException;
 import searchengine.model.Site;
 import searchengine.model.StatusType;
@@ -22,8 +21,10 @@ import searchengine.responses.IndexResponse;
 import searchengine.responses.Response;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,9 +40,7 @@ public class IndexingService {
     private final InitSiteList initSiteList;
     private final Lemmatisator lemmatisator;
     private final Config config;
-    private List<WebParser> webParserList = new ArrayList<>();
-    private Thread startIndexingThread;
-    static AtomicBoolean isIndexing = new AtomicBoolean(false);
+    private static AtomicBoolean indexing = new AtomicBoolean(false);
 
     @Autowired
     public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
@@ -65,64 +64,68 @@ public class IndexingService {
 
     @SneakyThrows
     public Response startIndexing() {
-        if (isIndexing.get()) {
+        if (indexing.compareAndSet(false, true)) {
+            clearData();
+            List<searchengine.config.Site> siteList = initSiteList.getSites();
+            WebParser.setInitSiteList(initSiteList);
+            WebParser.initiateValidationPatterns();
+
+            int numSites = siteList.size();
+            CountDownLatch latch = new CountDownLatch(numSites);
+
+            for (searchengine.config.Site initSite : siteList) {
+                Site site = new Site(initSite.getUrl(), initSite.getName());
+                site.setStatus(StatusType.INDEXING);
+                siteRepository.save(site);
+
+                new Thread(() -> {
+                    ForkJoinPool pool = new ForkJoinPool();
+                    WebParser webParser = new WebParser(pageRepository, lemmaRepository, indexRepository,
+                            config, lemmatisator, new ArrayList<>(Collections.singleton(site.getUrl())));
+                    webParser.setSite(site);
+                    pool.execute(webParser);
+                    try {
+                        webParser.get();
+                        site.setStatus(StatusType.INDEXED);
+                        siteRepository.save(site);
+                        latch.countDown();
+                    } catch (InterruptedException | ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+            }
+            try {
+                latch.await();
+                indexing.set(false);
+                WebParser.clearVisitedLinks();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
+        } else {
             return new IndexResponse(new JSONObject().put(RESULT, false)
                     .put(ERROR, "Indexing already started"), HttpStatus.BAD_REQUEST);
         }
-        clearData();
-        List<searchengine.config.Site> siteList = initSiteList.getSites();
-        WebParser.setInitSiteList(initSiteList);
-        WebParser.initiateValidationPatterns();
-        for (searchengine.config.Site initSite : siteList) {
-            Site site = new Site(initSite.getUrl(), initSite.getName());
-            site.setStatus(StatusType.INDEXING);
-            siteRepository.save(site);
-            WebParser webParser = new WebParser(new HashSet<>(), pageRepository,
-                    lemmaRepository, indexRepository, config, lemmatisator);
-            webParser.setSite(site, initSite.getUrl());
-            webParserList.add(webParser);
-        }
-        isIndexing.set(true);
-        startIndexingThread = new Thread(() -> {
-            webParserList.forEach(webParser -> {
-                Thread thread = new Thread(() -> {
-                    ForkJoinPool forkJoinPool = new ForkJoinPool();
-                    forkJoinPool.execute(webParser);
-                    webParser.join();
-                    Site site = webParser.getSite();
-                    site.setStatus(StatusType.INDEXED);
-                    siteRepository.save(site);
-                    forkJoinPool.shutdown();
-                });
-                thread.start();
-            });
-            isIndexing.set(false);
-        });
-        startIndexingThread.start();
-        return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
     }
 
     @SneakyThrows
     public Response stopIndexing() {
-        if (!isIndexing.get()) {
+        if (indexing.compareAndSet(true, false)) {
+            WebParser.stopCrawling();
+            List<Site> sites = siteRepository.findAll();
+            sites.forEach(site -> {
+                if (site.getStatus().equals(StatusType.INDEXING)) {
+                    site.setStatus(StatusType.FAILED);
+                    site.setLastError("Indexing stopped by user");
+                }
+            });
+            siteRepository.saveAll(sites);
+            WebParser.clearVisitedLinks();
+            return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
+        } else {
             return new IndexResponse(new JSONObject().put(RESULT, false)
                     .put(ERROR, "Indexing not started"), HttpStatus.BAD_REQUEST);
         }
-        WebParsersStorage.getInstance().setTerminationInProcess(true);
-        startIndexingThread.interrupt();
-        webParserList.forEach(webParser -> webParser.cancel(true));
-        webParserList.clear();
-        WebParsersStorage.getInstance().terminateAll();
-        siteRepository.findAll().forEach(site -> {
-            if (site.getStatus().equals(StatusType.INDEXING)) {
-                site.setStatus(StatusType.FAILED);
-                site.setLastError("Indexing stopped by user");
-                siteRepository.save(site);
-            }
-        });
-        WebParsersStorage.getInstance().setTerminationInProcess(false);
-        isIndexing.set(false);
-        return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
     }
 
     @SneakyThrows
@@ -145,9 +148,9 @@ public class IndexingService {
         site.setStatus(StatusType.INDEXING);
         WebParser.setInitSiteList(initSiteList);
         WebParser.initiateValidationPatterns();
-        WebParser webParser = new WebParser(new HashSet<>(), pageRepository,
-                lemmaRepository, indexRepository, config, lemmatisator);
-        webParser.setSite(site, url);
+        WebParser webParser = new WebParser(pageRepository, lemmaRepository, indexRepository,
+                config, lemmatisator, new ArrayList<>(Collections.singleton(site.getUrl())));
+        webParser.setSite(site);
         webParser.addPage(url);
         site.setStatus(StatusType.INDEXED);
         siteRepository.save(site);
@@ -170,5 +173,9 @@ public class IndexingService {
                 .findFirst()
                 .map(searchengine.config.Site::getName)
                 .orElse(null);
+    }
+
+    public static boolean isIndexing() {
+        return indexing.get();
     }
 }
