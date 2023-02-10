@@ -11,6 +11,8 @@ import java.util.regex.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
 
@@ -34,9 +36,9 @@ import searchengine.repository.PageRepository;
 
 @Component
 public class WebParser extends RecursiveAction {
-//    private static final long serialVersionUID = 1L;
+    //    private static final long serialVersionUID = 1L;
     private static final AtomicBoolean stop = new AtomicBoolean(false);
-    private static final int THRESHOLD = 8;
+    //    private static final int THRESHOLD = 40;
     @Getter
     @Setter
     private Site site;
@@ -76,41 +78,63 @@ public class WebParser extends RecursiveAction {
             cancel(true);
             return;
         }
-        for(String link : toParseLinkList) {
-            if(!visitedLinks.contains(cleanUrl(link))) {
+        List<Page> pages = new ArrayList<>();
+        List<Lemma> lemmas = new ArrayList<>();
+        List<Index> indices = new ArrayList<>();
+        for (String link : toParseLinkList) {
+            if (!visitedLinks.contains(cleanUrl(link))) {
                 visitedLinks.add(cleanUrl(link));
                 HashMap<String, Integer> htmlData = getHtmlAndCollectLinks(link);
 
                 int code = htmlData.values().iterator().next();
                 String content = htmlData.keySet().iterator().next();
                 Page page = new Page(site, cleanUrl(link), code, content);
-                pageRepository.save(page);
+                pages.add(page);
 
                 TagNode node = cleaner.clean(content);
                 String plainText = node.getText().toString();
-                addLemmaAndIndex(plainText, page, true);
+                Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(plainText);
+                lemmaRankMap.forEach((lemmaString, rank) -> {
+                    Lemma lemma;
+                    lemma = new Lemma(site, lemmaString);
+                    boolean found = false;
+                    for (Lemma savedLemma : lemmas) {
+                        if (lemma.equals(savedLemma)) {
+                            savedLemma.setFrequency(savedLemma.getFrequency() + 1);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) lemmas.add(lemma);
+                    Index index = new Index(lemma, page, rank);
+                    indices.add(index);
+                });
             }
         }
-
-        while (foundLinks.size() > THRESHOLD) {
-            List<String> foundLinkList = new ArrayList<>(foundLinks);
-            List<String> subList = foundLinkList.subList(0, THRESHOLD);
-
-            foundLinks = foundLinkList.subList(THRESHOLD, foundLinkList.size());
-
-            WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                    config, lemmatisator, subList);
-            task.setSite(site);
-
-            task.fork();
+        if (!pages.isEmpty()) {
+            pageRepository.saveAll(pages);
+            pages.clear();
         }
-
-        if (!foundLinks.isEmpty()) {
-            WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                    config, lemmatisator, new ArrayList<>(foundLinks));
-            task.setSite(site);
-            task.compute();
+        if (!lemmas.isEmpty()) {
+            lemmas.forEach(lemma -> {
+                Lemma existingLemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemma.getLemmaString(), site);
+                if (existingLemma != null) {
+                    existingLemma.setFrequency(lemma.getFrequency() + lemma.getFrequency());
+                    lemmaRepository.save(existingLemma);
+                } else {
+                    lemmaRepository.save(lemma);
+                }
+            });
+            lemmas.clear();
         }
+        if (!indices.isEmpty()) {
+            indexRepository.saveAll(indices);
+            indices.clear();
+        }
+        WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
+                config, lemmatisator, foundLinks);
+        task.setSite(site);
+        task.fork();
         join();
     }
 
@@ -183,27 +207,25 @@ public class WebParser extends RecursiveAction {
         if (code < 400) {
             TagNode node = cleaner.clean(content);
             String plainText = node.getText().toString();
-            addLemmaAndIndex(plainText, page, isNewPage);
-        }
-    }
-
-    private void addLemmaAndIndex(String text, Page page, boolean isNewPage) {
-        Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(text);
-        lemmaRankMap.forEach((lemmaString, rank) -> {
-            Lemma lemma;
+            Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(plainText);
+            boolean finalIsNewPage = isNewPage;
+            Page finalPage = page;
+            lemmaRankMap.forEach((lemmaString, rank) -> {
+                Lemma lemma;
                 lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
                 if (lemma == null) lemma = new Lemma(site, lemmaString);
                 else lemma.setFrequency(lemma.getFrequency() + 1);
                 lemmaRepository.save(lemma);
-            Index index;
-            if (isNewPage) index = new Index(lemma, page, rank);
-            else {
-                index = indexRepository.findByLemmaAndPage(lemma, page);
-                if (index == null) index = new Index(lemma, page, rank);
-                else index.setRank(rank);
-            }
-            indexRepository.save(index);
-        });
+                Index index;
+                if (finalIsNewPage) index = new Index(lemma, finalPage, rank);
+                else {
+                    index = indexRepository.findByLemmaAndPage(lemma, finalPage);
+                    if (index == null) index = new Index(lemma, finalPage, rank);
+                    else index.setRank(rank);
+                }
+                indexRepository.save(index);
+            });
+        }
     }
 
     public String cleanUrl(String url) {

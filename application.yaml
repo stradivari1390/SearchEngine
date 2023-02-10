@@ -41,6 +41,12 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+        jdbc:
+          batch_size: 100
+          order_inserts: true
+          order_deletes: true
+          order_updates: true
+        generate_statistics: true
     hibernate:
       ddl-auto: create-drop
     show-sql: true
