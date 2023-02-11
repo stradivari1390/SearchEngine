@@ -19,4 +19,11 @@ public class StatisticsResponse implements Response {
     public HttpStatus getHttpStatus() {
         return httpStatus;
     }
+
+    @Override
+    public String toString() {
+        return "StatisticsResponse{" +
+                "response=" + response +
+                '}';
+    }
 }

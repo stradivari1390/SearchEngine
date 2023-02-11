@@ -28,7 +28,7 @@ public class StatisticController {
     public ResponseEntity<Response> statistics() {
         logger.info("Received request to get statistics");
         Response statisticsResponse = statisticsService.getStatistics();
-        logger.info(statisticsResponse);
+        logger.info(statisticsResponse.toString());
         return new ResponseEntity<>(statisticsResponse, statisticsResponse.getHttpStatus());
     }
 }

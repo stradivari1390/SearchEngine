@@ -21,13 +21,16 @@
   <link rel="preload" href="/assets/fonts/Montserrat/Montserrat-ExtraBold.woff2" as="font" crossorigin="anonymous">
   <link rel="stylesheet" href="/assets/css/fonts.css?v=82368483">
   <link rel="stylesheet" href="/assets/css/basic.css?v=82368483">
-  <link rel="stylesheet" href="/assets/css/extra.css?v=82368483"><!--[if lt IE 9]>
-  <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <link rel="stylesheet" href="/assets/css/extra.css?v=82368483">
+  <!--[if lt IE 9]>
+  <script src="https://raw.githubusercontent.com/aFarkas/html5shiv/master/dist/html5shiv.min.js"></script>
+  <![endif]-->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-  <script>
-     var backendApiUrl = 'http://localhost:8080'
-  </script>
-  
+  <script src="src/main/resources/static/assets/js/scripts.js"></script>
+
+  <script> const backendApiUrl = 'http://localhost:8080';</script>
+
   <script defer src="/assets/js/scripts.js?v=38874865"></script>
 
 </head>
@@ -115,7 +118,6 @@
                 <form class="form form_close" action="#" method="post" data-send="searchResponse" data-sendlimit="10">
                   <div class="form-group">
                     <div class="form-selectWrap">
-                      <!-- - var options = setOptions(items, ['value', 'selected', 'disabled']);-->
                       <select class="form-select" name="site">
                         <option value="" selected="selected">All sites
                         </option>
@@ -145,5 +147,4 @@
       </div>
     </div>
   </div>
-  <script src="/assets/plg/jQuery/jquery-3.5.1.min.js"></script>
 </body></html>

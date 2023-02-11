@@ -10,19 +10,15 @@ import org.springframework.stereotype.Service;
 
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
-import searchengine.dto.Lemmatisator;
 import searchengine.exceptions.EmptyLinkException;
-import searchengine.model.Site;
-import searchengine.model.StatusType;
+import searchengine.model.*;
 import searchengine.repository.*;
 import searchengine.dto.WebParser;
 import searchengine.responses.ErrorResponse;
 import searchengine.responses.IndexResponse;
 import searchengine.responses.Response;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -39,7 +35,6 @@ public class IndexingService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final InitSiteList initSiteList;
-    private final Lemmatisator lemmatisator;
     private final Config config;
     private static AtomicBoolean indexing = new AtomicBoolean(false);
     private static List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
@@ -48,14 +43,13 @@ public class IndexingService {
     @Autowired
     public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
                            LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                           InitSiteList initSiteList, Config config, Lemmatisator lemmatisator) {
+                           InitSiteList initSiteList, Config config) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.initSiteList = initSiteList;
         this.config = config;
-        this.lemmatisator = lemmatisator;
     }
 
     private void clearData() {
@@ -86,13 +80,11 @@ public class IndexingService {
                     ForkJoinPool pool = new ForkJoinPool();
                     forkJoinPoolList.add(pool);
                     WebParser webParser = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                            config, lemmatisator, new ArrayList<>(Collections.singleton(site.getUrl())));
+                            config, new ArrayList<>(Collections.singleton(site.getUrl())));
                     webParser.setSite(site);
                     pool.execute(webParser);
                     try {
                         webParser.get();
-                        site.setStatus(StatusType.INDEXED);
-                        siteRepository.save(site);
                         latch.countDown();
                     } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();
@@ -106,6 +98,21 @@ public class IndexingService {
                     latch.await();
                     indexing.set(false);
                     WebParser.clearVisitedLinks();
+                    processPagesInserting();
+                    WebParser.collectLemmasAndIndices();
+                    processLemmasInserting();
+                    processIndicesInserting();
+                    List<Site> sites = siteRepository.findAll();
+                    sites.forEach(site -> {
+                        if (site.getStatus().equals(StatusType.INDEXING)) {
+                            site.setStatus(StatusType.INDEXED);
+                        }
+                    });
+                    WebParser.clearPagesSet();
+                    WebParser.clearLemmasList();
+                    WebParser.clearIndicesSet();
+                    threadList.clear();
+                    forkJoinPoolList.clear();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     Thread.currentThread().interrupt();
@@ -127,6 +134,11 @@ public class IndexingService {
             forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
             threadList.clear();
             forkJoinPoolList.clear();
+            WebParser.clearVisitedLinks();
+            processPagesInserting();
+            WebParser.collectLemmasAndIndices();
+            processLemmasInserting();
+            processIndicesInserting();
             List<Site> sites = siteRepository.findAll();
             sites.forEach(site -> {
                 if (site.getStatus().equals(StatusType.INDEXING)) {
@@ -135,7 +147,9 @@ public class IndexingService {
                 }
             });
             siteRepository.saveAll(sites);
-            WebParser.clearVisitedLinks();
+            WebParser.clearPagesSet();
+            WebParser.clearLemmasList();
+            WebParser.clearIndicesSet();
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
         } else {
             return new IndexResponse(new JSONObject().put(RESULT, false)
@@ -169,7 +183,7 @@ public class IndexingService {
         WebParser.setInitSiteList(initSiteList);
         WebParser.initiateValidationPatterns();
         WebParser webParser = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                config, lemmatisator, new ArrayList<>(Collections.singleton(site.getUrl())));
+                config, new ArrayList<>(Collections.singleton(site.getUrl())));
         webParser.setSite(site);
         webParser.addPage(url);
         site.setStatus(StatusType.INDEXED);
@@ -197,5 +211,26 @@ public class IndexingService {
 
     public static boolean isIndexing() {
         return indexing.get();
+    }
+
+    private void processPagesInserting() {
+        if (!WebParser.getPages().isEmpty()) {
+            Set<Page> pages = WebParser.getPages();
+            pageRepository.saveAll(pages);
+        }
+    }
+
+    private void processLemmasInserting() {
+        if (!WebParser.getLemmas().isEmpty()) {
+            Set<Lemma> lemmas = WebParser.getLemmas();
+            lemmaRepository.saveAll(lemmas);
+        }
+    }
+
+    private void processIndicesInserting() {
+        if (!WebParser.getIndices().isEmpty()) {
+            Set<Index> indices = WebParser.getIndices();
+            indexRepository.saveAll(indices);
+        }
     }
 }

@@ -113,5 +113,7 @@
     <orderEntry type="library" name="Maven: org.apache.lucene.morphology:dictionary-reader:1.5" level="project" />
     <orderEntry type="library" name="Maven: org.apache.lucene.morphology:english:1.5" level="project" />
     <orderEntry type="library" name="Maven: org.apache.lucene.morphology:russian:1.5" level="project" />
+    <orderEntry type="library" name="jquery-3.6.0" level="application" />
+    <orderEntry type="library" name="html5shiv" level="application" />
   </component>
 </module>

@@ -3,7 +3,7 @@ package searchengine.dto;
 import java.io.IOException;
 
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
+
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -11,8 +11,6 @@ import java.util.regex.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
 
@@ -48,27 +46,32 @@ public class WebParser extends RecursiveAction {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final Config config;
-    private final Lemmatisator lemmatisator;
-    private final HtmlCleaner cleaner;
-    private List<String> foundLinks = new ArrayList<>();
-    private static CopyOnWriteArrayList<String> visitedLinks = new CopyOnWriteArrayList<>();
+    private static Lemmatisator lemmatisator = new Lemmatisator();
+    private static HtmlCleaner cleaner = new HtmlCleaner();
+    private List<String> foundLinks;
+    private static List<String> visitedLinks = new ArrayList<>();
     private List<String> toParseLinkList;
     private static Pattern root;
     private static Pattern file;
     private static Pattern pageElement;
     private static Pattern contactLink;
+    @Getter
+    private static Set<Lemma> lemmas = new HashSet<>();
+    @Getter
+    private static Set<Index> indices = new HashSet<>();
+    @Getter
+    private static Set<Page> pages = new HashSet<>();
 
     @Autowired
     public WebParser(PageRepository pageRepository, LemmaRepository lemmaRepository,
-                     IndexRepository indexRepository, Config config, Lemmatisator lemmatisator,
+                     IndexRepository indexRepository, Config config,
                      List<String> toParseLinkList) {
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.config = config;
-        this.lemmatisator = lemmatisator;
         this.toParseLinkList = toParseLinkList;
-        cleaner = new HtmlCleaner();
+        foundLinks = new ArrayList<>();
     }
 
     @SneakyThrows
@@ -78,63 +81,29 @@ public class WebParser extends RecursiveAction {
             cancel(true);
             return;
         }
-        List<Page> pages = new ArrayList<>();
-        List<Lemma> lemmas = new ArrayList<>();
-        List<Index> indices = new ArrayList<>();
         for (String link : toParseLinkList) {
             if (!visitedLinks.contains(cleanUrl(link))) {
                 visitedLinks.add(cleanUrl(link));
                 HashMap<String, Integer> htmlData = getHtmlAndCollectLinks(link);
 
+                if(!foundLinks.isEmpty()) {
+                    WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
+                            config, foundLinks);
+                    task.setSite(site);
+                    foundLinks = new ArrayList<>();
+                    task.fork();
+                }
+
                 int code = htmlData.values().iterator().next();
                 String content = htmlData.keySet().iterator().next();
                 Page page = new Page(site, cleanUrl(link), code, content);
-                pages.add(page);
-
-                TagNode node = cleaner.clean(content);
-                String plainText = node.getText().toString();
-                Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(plainText);
-                lemmaRankMap.forEach((lemmaString, rank) -> {
-                    Lemma lemma;
-                    lemma = new Lemma(site, lemmaString);
-                    boolean found = false;
-                    for (Lemma savedLemma : lemmas) {
-                        if (lemma.equals(savedLemma)) {
-                            savedLemma.setFrequency(savedLemma.getFrequency() + 1);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) lemmas.add(lemma);
-                    Index index = new Index(lemma, page, rank);
-                    indices.add(index);
-                });
+                pages.add(page);  //ToDo: add to Redis
             }
         }
-        if (!pages.isEmpty()) {
-            pageRepository.saveAll(pages);
-            pages.clear();
-        }
-        if (!lemmas.isEmpty()) {
-            lemmas.forEach(lemma -> {
-                Lemma existingLemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemma.getLemmaString(), site);
-                if (existingLemma != null) {
-                    existingLemma.setFrequency(lemma.getFrequency() + lemma.getFrequency());
-                    lemmaRepository.save(existingLemma);
-                } else {
-                    lemmaRepository.save(lemma);
-                }
-            });
-            lemmas.clear();
-        }
-        if (!indices.isEmpty()) {
-            indexRepository.saveAll(indices);
-            indices.clear();
-        }
-        WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                config, lemmatisator, foundLinks);
-        task.setSite(site);
-        task.fork();
+//        if (!pages.isEmpty()) {
+//            pageRepository.saveAll(pages);
+//            pages.clear();
+//        }
         join();
     }
 
@@ -155,7 +124,8 @@ public class WebParser extends RecursiveAction {
         Elements linkElements = document.select("a[href]");
         for (Element linkElement : linkElements) {
             String absUrl = linkElement.attr("abs:href");
-            if (absUrl.length() > 0 && isValidLink(absUrl)) foundLinks.add(absUrl);
+            if (absUrl.length() > 0 && isValidLink(absUrl)
+                    && !visitedLinks.contains(cleanUrl(absUrl))) foundLinks.add(absUrl);
         }
 
         String textHtml = document.html();
@@ -163,6 +133,33 @@ public class WebParser extends RecursiveAction {
         HashMap<String, Integer> result = new HashMap<>();
         result.put(textHtml, code);
         return result;
+    }
+
+    public static void collectLemmasAndIndices () {
+        for(Page page : pages) {
+            TagNode node = cleaner.clean(page.getContent());
+            String plainText = node.getText().toString();
+            Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(plainText);
+            for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
+                String lemmaString = entry.getKey();
+                Integer rank = entry.getValue();
+                Lemma lemma = null;
+                for (Lemma l : lemmas) {
+                    if (l.getSite().equals(page.getSite()) && l.getLemmaString().equals(lemmaString)) {
+                        lemma = l;
+                        break;
+                    }
+                }
+                if (lemma == null) {
+                    lemma = new Lemma(page.getSite(), lemmaString);
+                    lemmas.add(lemma);
+                } else {
+                    lemma.setFrequency(lemma.getFrequency() + 1);
+                }
+                Index index = new Index(lemma, page, rank);
+                indices.add(index);
+            }
+        }
     }
 
     public static void initiateValidationPatterns() {
@@ -189,8 +186,8 @@ public class WebParser extends RecursiveAction {
         boolean isNewPage = false;
         HashMap<String, Integer> html = getHtmlAndCollectLinks(url);
 
-        int code = (int) html.values().toArray()[0];
-        String content = String.valueOf(html.keySet().toArray()[0]);
+        int code = html.values().iterator().next();
+        String content = html.keySet().iterator().next();
 
         Page page = pageRepository.findByPath(url);
         if (page == null) {
@@ -242,5 +239,17 @@ public class WebParser extends RecursiveAction {
 
     public static void clearVisitedLinks() {
         visitedLinks.clear();
+    }
+
+    public static void clearLemmasList() {
+        lemmas.clear();
+    }
+
+    public static void clearIndicesSet() {
+        indices.clear();
+    }
+
+    public static void clearPagesSet() {
+        pages.clear();
     }
 }

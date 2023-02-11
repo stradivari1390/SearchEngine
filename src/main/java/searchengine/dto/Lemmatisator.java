@@ -1,5 +1,6 @@
 package searchengine.dto;
 
+import lombok.SneakyThrows;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -17,7 +18,8 @@ public class Lemmatisator {
     private final LuceneMorphology russianMorph;
     private final LuceneMorphology englishMorph;
 
-    public Lemmatisator() throws LemmatizationException {
+    @SneakyThrows
+    public Lemmatisator() {
         try {
             russianMorph = new RussianLuceneMorphology();
             englishMorph = new EnglishLuceneMorphology();

@@ -1,7 +1,6 @@
 package searchengine.model;
 
 import lombok.*;
-import org.hibernate.Hibernate;
 
 import javax.persistence.*;
 import java.util.Date;
@@ -57,13 +56,13 @@ public class Site {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        if (!(o instanceof Site)) return false;
         Site site = (Site) o;
-        return id != 0 && Objects.equals(id, site.id);
+        return getUrl().equals(site.getUrl()) && getName().equals(site.getName());
     }
 
     @Override
     public int hashCode() {
-        return getClass().hashCode();
+        return Objects.hash(getUrl(), getName());
     }
 }
