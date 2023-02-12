@@ -5,6 +5,7 @@ import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -19,8 +20,6 @@ import searchengine.responses.IndexResponse;
 import searchengine.responses.Response;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,6 +34,7 @@ public class IndexingService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final InitSiteList initSiteList;
+    private final RedisTemplate<String, Page> redisTemplate;
     private final Config config;
     private static AtomicBoolean indexing = new AtomicBoolean(false);
     private static List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
@@ -43,12 +43,13 @@ public class IndexingService {
     @Autowired
     public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
                            LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                           InitSiteList initSiteList, Config config) {
+                           InitSiteList initSiteList, RedisTemplate<String, Page> redisTemplate, Config config) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.initSiteList = initSiteList;
+        this.redisTemplate = redisTemplate;
         this.config = config;
     }
 
@@ -67,59 +68,54 @@ public class IndexingService {
             WebParser.setInitSiteList(initSiteList);
             WebParser.initiateValidationPatterns();
 
-            int numSites = siteList.size();
-            CountDownLatch latch = new CountDownLatch(numSites);
-
             for (searchengine.config.Site initSite : siteList) {
                 Site site = new Site(initSite.getUrl(), initSite.getName());
                 site.setStatus(StatusType.INDEXING);
                 siteRepository.save(site);
 
-                CompletableFuture.runAsync(() -> new Thread(() -> {
-                    threadList.add(Thread.currentThread());
+                threadList.add(new Thread(() -> {
                     ForkJoinPool pool = new ForkJoinPool();
                     forkJoinPoolList.add(pool);
                     WebParser webParser = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                            config, new ArrayList<>(Collections.singleton(site.getUrl())));
+                            config, new ArrayList<>(Collections.singleton(site.getUrl())), redisTemplate);
                     webParser.setSite(site);
-                    pool.execute(webParser);
+                    pool.submit(webParser);
                     try {
                         webParser.get();
-                        latch.countDown();
                     } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();
                         Thread.currentThread().interrupt();
                     }
-                }).start());
-            }
-
-            CompletableFuture.runAsync(() -> {
-                try {
-                    latch.await();
-                    indexing.set(false);
-                    WebParser.clearVisitedLinks();
+                    WebParser.setPages(webParser.getPagesFromRedis());
                     processPagesInserting();
                     WebParser.collectLemmasAndIndices();
                     processLemmasInserting();
                     processIndicesInserting();
-                    List<Site> sites = siteRepository.findAll();
-                    sites.forEach(site -> {
-                        if (site.getStatus().equals(StatusType.INDEXING)) {
-                            site.setStatus(StatusType.INDEXED);
-                        }
-                    });
-                    WebParser.clearPagesSet();
+                    site.setStatus(StatusType.INDEXED);
+                    WebParser.clearPagesList();
                     WebParser.clearLemmasList();
-                    WebParser.clearIndicesSet();
-                    threadList.clear();
-                    forkJoinPoolList.clear();
+                    WebParser.clearIndicesList();
+                    WebParser.clearVisitedLinks();
+                }));
+            }
+
+            for (Thread thread : threadList) {
+                if(!indexing.get()) {
+                    break;
+                }
+                thread.start();
+                try {
+                    thread.join();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     Thread.currentThread().interrupt();
                 }
-            });
+            }
 
-            return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
+            threadList.clear();
+            forkJoinPoolList.clear();
+            indexing.set(false);
+            return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);  //ToDO: Response before threads end
         } else {
             return new IndexResponse(new JSONObject().put(RESULT, false)
                     .put(ERROR, "Indexing already started"), HttpStatus.BAD_REQUEST);
@@ -134,7 +130,6 @@ public class IndexingService {
             forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
             threadList.clear();
             forkJoinPoolList.clear();
-            WebParser.clearVisitedLinks();
             processPagesInserting();
             WebParser.collectLemmasAndIndices();
             processLemmasInserting();
@@ -147,9 +142,10 @@ public class IndexingService {
                 }
             });
             siteRepository.saveAll(sites);
-            WebParser.clearPagesSet();
+            WebParser.clearPagesList();
             WebParser.clearLemmasList();
-            WebParser.clearIndicesSet();
+            WebParser.clearIndicesList();
+            WebParser.clearVisitedLinks();
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
         } else {
             return new IndexResponse(new JSONObject().put(RESULT, false)
@@ -183,7 +179,7 @@ public class IndexingService {
         WebParser.setInitSiteList(initSiteList);
         WebParser.initiateValidationPatterns();
         WebParser webParser = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                config, new ArrayList<>(Collections.singleton(site.getUrl())));
+                config, new ArrayList<>(Collections.singleton(site.getUrl())), redisTemplate);
         webParser.setSite(site);
         webParser.addPage(url);
         site.setStatus(StatusType.INDEXED);
@@ -214,23 +210,39 @@ public class IndexingService {
     }
 
     private void processPagesInserting() {
-        if (!WebParser.getPages().isEmpty()) {
-            Set<Page> pages = WebParser.getPages();
+            deletePagesDuplicates();
+            List<Page> pages = WebParser.getPages();
             pageRepository.saveAll(pages);
+    }
+
+    private static void deletePagesDuplicates() {
+        Set<Page> set = new HashSet<>();
+        List<Page> pagesWithoutDuplicates = new LinkedList<>();
+        for (Page page : WebParser.getPages()) {
+            if (!set.contains(page)) {
+                set.add(page);
+                pagesWithoutDuplicates.add(page);
+            }
         }
+        WebParser.setPages(pagesWithoutDuplicates);     //time complexity O(n), space complexity O(n)
+//        int s = pages.size();
+//        for(int i = 0; i < s - 1; i++) {
+//            for(int j = s - 1; j > i; j--) {
+//                if(pages.get(i).equals(pages.get(j))) {
+//                    pages.remove(j);
+//                    s = pages.size();
+//                }
+//            }
+//        }             time complexity O(n^2), space complexity O(1)
     }
 
     private void processLemmasInserting() {
-        if (!WebParser.getLemmas().isEmpty()) {
-            Set<Lemma> lemmas = WebParser.getLemmas();
+            List<Lemma> lemmas = WebParser.getLemmas();
             lemmaRepository.saveAll(lemmas);
-        }
     }
 
     private void processIndicesInserting() {
-        if (!WebParser.getIndices().isEmpty()) {
-            Set<Index> indices = WebParser.getIndices();
+            List<Index> indices = WebParser.getIndices();
             indexRepository.saveAll(indices);
-        }
     }
 }

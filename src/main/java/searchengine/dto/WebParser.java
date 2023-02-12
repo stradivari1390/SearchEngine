@@ -20,6 +20,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
@@ -49,46 +50,47 @@ public class WebParser extends RecursiveAction {
     private static Lemmatisator lemmatisator = new Lemmatisator();
     private static HtmlCleaner cleaner = new HtmlCleaner();
     private List<String> foundLinks;
-    private static List<String> visitedLinks = new ArrayList<>();
+    private static List<String> visitedLinks = new LinkedList<>();
     private List<String> toParseLinkList;
     private static Pattern root;
     private static Pattern file;
     private static Pattern pageElement;
     private static Pattern contactLink;
     @Getter
-    private static Set<Lemma> lemmas = new HashSet<>();
+    private static List<Lemma> lemmas = new LinkedList<>();
     @Getter
-    private static Set<Index> indices = new HashSet<>();
+    private static List<Index> indices = new LinkedList<>();
     @Getter
-    private static Set<Page> pages = new HashSet<>();
+    @Setter
+    private static List<Page> pages = new LinkedList<>();
+    private final RedisTemplate<String, Page> redisTemplate;
+    private static final String REDIS_KEY = "pages";
+    private static final Object lock = new Object();
 
     @Autowired
     public WebParser(PageRepository pageRepository, LemmaRepository lemmaRepository,
                      IndexRepository indexRepository, Config config,
-                     List<String> toParseLinkList) {
+                     List<String> toParseLinkList, RedisTemplate<String, Page> redisTemplate) {
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.config = config;
         this.toParseLinkList = toParseLinkList;
         foundLinks = new ArrayList<>();
+        this.redisTemplate = redisTemplate;
     }
 
     @SneakyThrows
     @Override
     public void compute() {
-        if (stop.get()) {
-            cancel(true);
-            return;
-        }
         for (String link : toParseLinkList) {
             if (!visitedLinks.contains(cleanUrl(link))) {
                 visitedLinks.add(cleanUrl(link));
                 HashMap<String, Integer> htmlData = getHtmlAndCollectLinks(link);
 
-                if(!foundLinks.isEmpty()) {
+                if (!foundLinks.isEmpty()) {
                     WebParser task = new WebParser(pageRepository, lemmaRepository, indexRepository,
-                            config, foundLinks);
+                            config, foundLinks, redisTemplate);
                     task.setSite(site);
                     foundLinks = new ArrayList<>();
                     task.fork();
@@ -97,14 +99,25 @@ public class WebParser extends RecursiveAction {
                 int code = htmlData.values().iterator().next();
                 String content = htmlData.keySet().iterator().next();
                 Page page = new Page(site, cleanUrl(link), code, content);
-                pages.add(page);  //ToDo: add to Redis
+                if (stop.get()) {
+                    synchronized (lock) {
+                        if (pages.isEmpty()) {
+                            pages = getPagesFromRedis();
+                        }
+                    }
+                    cancel(true);
+                    return;
+                }
+                redisTemplate.opsForList().rightPush(REDIS_KEY, page);
             }
         }
-//        if (!pages.isEmpty()) {
-//            pageRepository.saveAll(pages);
-//            pages.clear();
-//        }
-        join();
+        get(); //ToDo: split for smaller tasks, 10 links would be ok
+    }
+
+    public List<Page> getPagesFromRedis() {
+        List<Page> pageList = redisTemplate.opsForList().range(REDIS_KEY, 0, -1);
+        redisTemplate.delete(REDIS_KEY);
+        return new LinkedList<>(pageList);
     }
 
     private HashMap<String, Integer> getHtmlAndCollectLinks(String url) throws WebParserException {
@@ -124,8 +137,8 @@ public class WebParser extends RecursiveAction {
         Elements linkElements = document.select("a[href]");
         for (Element linkElement : linkElements) {
             String absUrl = linkElement.attr("abs:href");
-            if (absUrl.length() > 0 && isValidLink(absUrl)
-                    && !visitedLinks.contains(cleanUrl(absUrl))) foundLinks.add(absUrl);
+            /*if (absUrl.length() > 0 && isValidLink(absUrl)
+                    && !visitedLinks.contains(cleanUrl(absUrl)))*/ foundLinks.add(absUrl);
         }
 
         String textHtml = document.html();
@@ -245,11 +258,11 @@ public class WebParser extends RecursiveAction {
         lemmas.clear();
     }
 
-    public static void clearIndicesSet() {
+    public static void clearIndicesList() {
         indices.clear();
     }
 
-    public static void clearPagesSet() {
+    public static void clearPagesList() {
         pages.clear();
     }
 }

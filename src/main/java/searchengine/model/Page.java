@@ -1,7 +1,6 @@
 package searchengine.model;
 
 import lombok.*;
-import org.hibernate.Hibernate;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -52,14 +51,14 @@ public class Page {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        if (!(o instanceof Page)) return false;
         Page page = (Page) o;
-        return id != 0 && Objects.equals(id, page.id);
+        return getPath().equals(page.getPath());
     }
 
     @Override
     public int hashCode() {
-        return getClass().hashCode();
+        return Objects.hash(getPath());
     }
 
     @Override
