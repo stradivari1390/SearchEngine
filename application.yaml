@@ -1,11 +1,18 @@
 indexing-settings:
   sites:
-    - url: https://lenta.ru/
-      name: Лента.ру
-    - url: https://skillbox.ru/
-      name: Skillbox
-    - url: https://playback.ru/
-      name: PlayBack.Ru
+#    - url: https://lenta.ru/
+#      name: Лента.ру
+#    - url: https://skillbox.ru/
+#      name: Skillbox
+#    - url: https://playback.ru/
+#      name: PlayBack.Ru
+
+#    - url: https://disneyland.disney.go.com/
+#      name: DisneyLand
+    - url: https://eng.rudn.ru/
+      name: PFUoR
+    - url: https://sciencedirect.com/
+      name: Science Direct
 
 config:
   userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36

@@ -13,7 +13,7 @@ import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
-import searchengine.dto.Lemmatisator;
+import searchengine.dto.parsing.Lemmatisator;
 
 import java.util.*;
 

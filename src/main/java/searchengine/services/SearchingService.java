@@ -44,14 +44,14 @@ public class SearchingService {
         if (query == null || query.isEmpty()) {
             return createEmptyQueryErrorResponse();
         }
-        if (siteUrl != null && siteRepository.findByUrl(siteUrl).getUrl() == null) {
+        if (siteUrl != null && siteRepository.findSiteByUrl(siteUrl).getUrl() == null) {
             return createNotFoundSiteErrorResponse();
         }
 
         SearchEngine searchEngine = new SearchEngine(siteRepository, pageRepository,
                 lemmaRepository, indexRepository);
 
-        Search search = searchEngine.search(query, siteRepository.findByUrl(siteUrl));
+        Search search = searchEngine.search(query, siteRepository.findSiteByUrl(siteUrl));
 
         if (search.getCount() < offset) {
             return createSearchResultErrorResponse();
