@@ -16,7 +16,9 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(uniqueConstraints={
+@Table(name = "Lemma", indexes = {
+        @javax.persistence.Index(name = "idx_lemma_site_id_lemma_unq", columnList = "site_id, lemma", unique = true)
+}, uniqueConstraints = {
         @UniqueConstraint(columnNames = {"lemma", "site_id"})
 })
 public class Lemma implements Comparable<Lemma>{
@@ -42,7 +44,7 @@ public class Lemma implements Comparable<Lemma>{
     @Column(name = "frequency", nullable = false)
     private int frequency = 1;
 
-    @OneToMany(mappedBy = "lemma", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "lemma", fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
     private Set<Index> indices = new HashSet<>();
 
     @Override

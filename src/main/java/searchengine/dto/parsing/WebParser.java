@@ -63,7 +63,6 @@ public class WebParser extends RecursiveTask<Integer> {
     //    private static final Object lock = new Object();
     private static AtomicInteger count = new AtomicInteger(0);
     private int amount;
-
     @Autowired
     public WebParser(InitSiteList initSiteList, PageRepository pageRepository, LemmaRepository lemmaRepository,
                      IndexRepository indexRepository, Config config,
@@ -94,6 +93,7 @@ public class WebParser extends RecursiveTask<Integer> {
                 visitedLinks.add(cleanUrl(link));
                 Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
                 Page page = new Page(site, cleanUrl(link), htmlData.getValue(), htmlData.getKey());
+//                page.setId(count.incrementAndGet());
                 redisTemplate.opsForList().rightPush(REDIS_KEY, page);
                 amount++;
                 System.out.print("\r pages done: " + count.incrementAndGet());

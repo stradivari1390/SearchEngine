@@ -9,6 +9,7 @@ import org.htmlcleaner.TagNode;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -60,6 +61,8 @@ public class IndexingService {
         this.redisTemplate = redisTemplate;
         this.config = config;
         this.lemmatisator = lemmatisator;
+        WebParser.initiateValidationPatterns(initSiteList);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> redisTemplate.delete(WebParser.REDIS_KEY)));
     }
 
     private void clearData() {
@@ -72,7 +75,6 @@ public class IndexingService {
     @SneakyThrows
     public Response startIndexing() {
         if (indexing.compareAndSet(false, true)) {
-            WebParser.initiateValidationPatterns(initSiteList);
             new Thread(this::indexing).start();
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
         } else {
@@ -127,10 +129,9 @@ public class IndexingService {
                 forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
                 threadList.forEach(Thread::interrupt);
                 siteRepository.findAll().forEach(site -> {
-                    if (site.getStatus().equals(StatusType.INDEXING)) {
-                        site.setLastError("Индексация остановлена пользователем");
-                        site.setStatus(StatusType.FAILED);
-                        siteRepository.save(site);
+                    if (site.getStatus().equals(StatusType.INDEXING) || site.getStatus().equals(StatusType.FAILED)) {
+                        site.setLastError("Индексация прервана пользователем");
+                        saveSiteStatus(site, StatusType.FAILED);
                     }
                 });
                 threadList.clear();
@@ -146,7 +147,6 @@ public class IndexingService {
     @SneakyThrows
     public Response indexPage(String url) {
         if (indexing.compareAndSet(false, true)) {
-            WebParser.initiateValidationPatterns(initSiteList);
             if (!WebParser.isValidLink(url)) {
                 return new IndexResponse(new JSONObject().put("Данная страница находится за пределами сайтов, " +
                         "указанных в конфигурационном файле", false), HttpStatus.BAD_REQUEST);
@@ -156,6 +156,7 @@ public class IndexingService {
                 if (url.replaceAll(HTTP_S_WWW, "")
                         .contains(site.getUrl().replaceAll(HTTP_S_WWW, ""))) {
                     initSite = site;
+                    break;
                 }
             }
             Site site = siteRepository.findSiteByUrl(initSite.getUrl());
@@ -186,13 +187,17 @@ public class IndexingService {
         while (startIndex < numPages) {
             long endIndex = Math.min(startIndex + batchSize - 1, numPages - 1);
             List<Page> pageList = redisTemplate.opsForList().range(WebParser.REDIS_KEY, startIndex, endIndex);
-            pageRepository.saveAll(pageList);
-            pageList.forEach(p -> extractLemmasAndSave(p, true, initSiteList.getBatchsize()));
+            try {
+                pageRepository.saveAll(pageList);
+                pageList.forEach(p -> extractLemmasAndSave(p, true, initSiteList.getBatchsize()));
+            } catch (NullPointerException e) {
+                logger.error(e.getMessage());
+                break;
+            }
             startIndex += batchSize;
         }
         redisTemplate.delete(WebParser.REDIS_KEY);
     }
-
 
     private void extractLemmasAndSave(Page page, boolean newPage, int batchSize) {
         TagNode node = cleaner.clean(page.getContent());
@@ -203,16 +208,10 @@ public class IndexingService {
         for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
             String lemmaString = entry.getKey();
             int rank = entry.getValue();
-            Lemma lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, page.getSite());
-            if (lemma == null) {
-                lemma = new Lemma(page.getSite(), lemmaString);
-                lemmasToInsert.add(lemma);
-            } else {
-                lemma.setFrequency(lemma.getFrequency() + 1);
-                lemmaRepository.save(lemma);
-            }
+            Lemma lemma = new Lemma(page.getSite(), lemmaString);
+            lemmasToInsert.add(lemma);
             Index index;
-            if(newPage) {
+            if (newPage) {
                 index = new Index(lemma, page, rank);
             } else {
                 index = indexRepository.findByLemmaAndPage(lemma, page);
@@ -220,14 +219,37 @@ public class IndexingService {
             }
             indicesToInsert.add(index);
         }
-        saveBatch(lemmasToInsert, batchSize, (batch, count) -> {
+
+        saveBatch(lemmasToInsert, 100, (batch, count) -> {
             List<Lemma> lemmasBatch = new ArrayList<>(batch);
-            lemmaRepository.saveAll(lemmasBatch);
+            try {
+                lemmaRepository.saveAll(lemmasBatch);
+            } catch (DataIntegrityViolationException ex) {
+                for (Lemma lemma : lemmasBatch) {
+                    Lemma existingLemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemma.getLemmaString(), lemma.getSite());
+                    if (existingLemma != null) {
+                        for (Index index : indicesToInsert) {
+                            if (index.getLemma().getLemmaString().equals(existingLemma.getLemmaString())) {
+                                existingLemma.setFrequency(existingLemma.getFrequency() + 1);
+                                lemmaRepository.save(existingLemma);
+                                index.setLemma(existingLemma);
+                                break;
+                            }
+                        }
+                    } else {
+                        lemmaRepository.save(lemma);
+                    }
+                }
+            }
         });
 
         saveBatch(indicesToInsert, batchSize, (batch, count) -> {
             List<Index> indicesBatch = new ArrayList<>(batch);
-            indexRepository.saveAll(indicesBatch);
+            try {
+                indexRepository.saveAll(indicesBatch);
+            } catch (DataIntegrityViolationException ex) {
+                ex.printStackTrace();
+            }
         });
     }
 
