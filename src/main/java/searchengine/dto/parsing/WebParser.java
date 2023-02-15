@@ -37,7 +37,8 @@ import searchengine.repository.PageRepository;
 @Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class WebParser extends RecursiveTask<Integer> {
     private static final long serialVersionUID = 1L;  // Do I really need to serialize it and fields?
-    //    private static final String URL_REGEX1 = "((https?|ftp|gopher|telnet|file):((//)|(\\\\))+[\\w\\d:#@%/;$()~_?\\+-=\\\\\\.&]*)";    These are two patterns to match links in script pages, second one consumes huge amount of memory
+//    These are two patterns to match links in script pages, second one consumes huge amount of memory
+//    private static final String URL_REGEX1 = "((https?|ftp|gopher|telnet|file):((//)|(\\\\))+[\\w\\d:#@%/;$()~_?\\+-=\\\\\\.&]*)";
 //    private static final String URL_REGEX2 = "(?i)\\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\".,<>?«»“”‘’]))");
     private static final AtomicBoolean stop = new AtomicBoolean(false);
     private static final int THRESHOLD = 25;
@@ -59,7 +60,7 @@ public class WebParser extends RecursiveTask<Integer> {
     private static Pattern contactLink;
     private final RedisTemplate<String, Page> redisTemplate;
     public static final String REDIS_KEY = "pages";
-    private static final Object lock = new Object();
+    //    private static final Object lock = new Object();
     private static AtomicInteger count = new AtomicInteger(0);
     private int amount;
 
@@ -84,15 +85,15 @@ public class WebParser extends RecursiveTask<Integer> {
     public Integer compute() {
         for (String link : toParseLinkList) {
             if (!visitedLinks.contains(cleanUrl(link))) {
-                visitedLinks.add(cleanUrl(link));
-                Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
-                Page page = new Page(site, cleanUrl(link), htmlData.getValue(), htmlData.getKey());
                 synchronized (stop) {
                     if (stop.get()) {
                         cancel(true);
                         return 0;
                     }
                 }
+                visitedLinks.add(cleanUrl(link));
+                Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
+                Page page = new Page(site, cleanUrl(link), htmlData.getValue(), htmlData.getKey());
                 redisTemplate.opsForList().rightPush(REDIS_KEY, page);
                 amount++;
                 System.out.print("\r pages done: " + count.incrementAndGet());

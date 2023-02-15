@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
 import searchengine.dto.parsing.Lemmatisator;
+import searchengine.exceptions.IndexingException;
 import searchengine.model.*;
 import searchengine.repository.*;
 import searchengine.dto.parsing.WebParser;
@@ -25,6 +26,7 @@ import searchengine.responses.Response;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.ObjIntConsumer;
 
 @Service
 public class IndexingService {
@@ -84,44 +86,34 @@ public class IndexingService {
         forkJoinPoolList = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(initSiteList.getSites().size());
         clearData();
-        List<WebParser> webParserList = new ArrayList<>();
-        List<searchengine.config.Site> initSites = initSiteList.getSites();
-        for (searchengine.config.Site initSite : initSites) {
-            Site site = siteRepository.findSiteByUrl(initSite.getUrl());
-            if (site == null) {
-                site = new Site(initSite.getUrl(), initSite.getName());
-            }
-            site.setStatus(StatusType.INDEXING);
-            webParserList.add(newWebParse(site));
-            siteRepository.save(site);
-        }
-        webParserList.forEach(webParser -> threadList.add(new Thread(() -> {
-            Site site = webParser.getSite();
-            try {
-                site.setStatus(StatusType.INDEXING);
-                siteRepository.save(site);
-                ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
-                forkJoinPoolList.add(forkJoinPool);
-                forkJoinPool.execute(webParser);
-                int count = webParser.join();
-                logger.info(webParser.getSite().getName() + ": " + count + " pages processed.");
-                site.setStatus(StatusType.INDEXED);
-                latch.countDown();
-                siteRepository.save(site);
-            } catch (CancellationException e) {
-                e.printStackTrace();
-                site.setLastError("Ошибка индексации: " + e.getMessage());
-                site.setStatus(StatusType.FAILED);
-                siteRepository.save(site);
-            }
-        })));
+        List<WebParser> webParserList = createWebParsers(initSiteList.getSites());
+        webParserList.forEach(webParser -> threadList.add(new Thread(() -> indexingThreadProcess(webParser, latch))));
         threadList.forEach(Thread::start);
         try {
             latch.await();
-            proceedPagesFromRedis(1000);
+            proceedPagesFromRedis(initSiteList.getBatchsize());
+            WebParser.clearVisitedLinks();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
+            throw new IndexingException("An error occurred while indexing", e);
+        }
+    }
+
+    private void indexingThreadProcess(WebParser webParser, CountDownLatch latch) {
+        Site site = webParser.getSite();
+        try {
+            saveSiteStatus(site, StatusType.INDEXING);
+            ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
+            forkJoinPoolList.add(forkJoinPool);
+            forkJoinPool.execute(webParser);
+            int count = webParser.join();
+            logger.info(webParser.getSite().getName() + ": " + count + " pages processed.");
+            saveSiteStatus(site, StatusType.INDEXED);
+            latch.countDown();
+        } catch (CancellationException e) {
+            e.printStackTrace();
+            site.setLastError("Ошибка индексации: " + e.getMessage());
+            saveSiteStatus(site, StatusType.FAILED);
         }
     }
 
@@ -130,12 +122,13 @@ public class IndexingService {
         if (indexing.compareAndSet(true, false)) {
             CompletableFuture.runAsync(() -> {
                 WebParser.stopCrawling();
-                proceedPagesFromRedis(1000);
+                proceedPagesFromRedis(initSiteList.getBatchsize());
+                WebParser.clearVisitedLinks();
                 forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
                 threadList.forEach(Thread::interrupt);
                 siteRepository.findAll().forEach(site -> {
                     if (site.getStatus().equals(StatusType.INDEXING)) {
-                        site.setLastError("Остановка индексации");
+                        site.setLastError("Индексация остановлена пользователем");
                         site.setStatus(StatusType.FAILED);
                         siteRepository.save(site);
                     }
@@ -170,14 +163,12 @@ public class IndexingService {
                 site = new Site(initSite.getUrl(), initSite.getName());
                 siteRepository.save(site);
             }
-            site.setStatus(StatusType.INDEXING);
-            siteRepository.save(site);
+            saveSiteStatus(site, StatusType.INDEXING);
             WebParser webParser = newWebParse(site);
             Map.Entry<Page, Boolean> indexedPage = webParser.addPage(url);
             Page page = indexedPage.getKey();
-            extractLemmasAndSave(page, indexedPage.getValue(), 1000);
-            site.setStatus(StatusType.INDEXED);
-            siteRepository.save(site);
+            extractLemmasAndSave(page, indexedPage.getValue(), initSiteList.getBatchsize());
+            saveSiteStatus(site, StatusType.INDEXED);
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
         } else {
             return new IndexResponse(new JSONObject().put(RESULT, false)
@@ -196,7 +187,7 @@ public class IndexingService {
             long endIndex = Math.min(startIndex + batchSize - 1, numPages - 1);
             List<Page> pageList = redisTemplate.opsForList().range(WebParser.REDIS_KEY, startIndex, endIndex);
             pageRepository.saveAll(pageList);
-            pageList.forEach(p -> extractLemmasAndSave(p, true, 1000));
+            pageList.forEach(p -> extractLemmasAndSave(p, true, initSiteList.getBatchsize()));
             startIndex += batchSize;
         }
         redisTemplate.delete(WebParser.REDIS_KEY);
@@ -229,16 +220,15 @@ public class IndexingService {
             }
             indicesToInsert.add(index);
         }
-        for (int i = 0; i < lemmasToInsert.size(); i += batchSize) {
-            int endIndex = Math.min(i + batchSize, lemmasToInsert.size() - 1);
-            List<Lemma> lemmasBatch = lemmasToInsert.subList(i, endIndex);
+        saveBatch(lemmasToInsert, batchSize, (batch, count) -> {
+            List<Lemma> lemmasBatch = new ArrayList<>(batch);
             lemmaRepository.saveAll(lemmasBatch);
-        }
-        for (int i = 0; i < indicesToInsert.size(); i += batchSize) {
-            int endIndex = Math.min(i + batchSize, indicesToInsert.size() - 1);
-            List<Index> indicesBatch = indicesToInsert.subList(i, endIndex);
+        });
+
+        saveBatch(indicesToInsert, batchSize, (batch, count) -> {
+            List<Index> indicesBatch = new ArrayList<>(batch);
             indexRepository.saveAll(indicesBatch);
-        }
+        });
     }
 
 //    private static void deletePagesDuplicates() {
@@ -268,5 +258,30 @@ public class IndexingService {
                 lemmatisator, Collections.singletonList(site.getUrl()), redisTemplate);
         webParser.setSite(site);
         return webParser;
+    }
+
+    private List<WebParser> createWebParsers(List<searchengine.config.Site> initSites) {
+        List<WebParser> webParserList = new ArrayList<>();
+        for (searchengine.config.Site initSite : initSites) {
+            Site site = siteRepository.findSiteByUrl(initSite.getUrl());
+            if (site == null) {
+                site = new Site(initSite.getUrl(), initSite.getName());
+            }
+            webParserList.add(newWebParse(site));
+        }
+        return webParserList;
+    }
+
+    private <T> void saveBatch(List<T> items, int batchSize, ObjIntConsumer<List<T>> saveFunction) {
+        for (int i = 0; i < items.size(); i += batchSize) {
+            int endIndex = Math.min(i + batchSize, items.size());
+            List<T> batch = items.subList(i, endIndex);
+            saveFunction.accept(batch, endIndex - i);
+        }
+    }
+
+    private void saveSiteStatus(Site site, StatusType status) {
+        site.setStatus(status);
+        siteRepository.save(site);
     }
 }

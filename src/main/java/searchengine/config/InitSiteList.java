@@ -13,4 +13,5 @@ import java.util.List;
 @ConfigurationProperties(prefix = "indexing-settings")
 public class InitSiteList {
     private List<Site> sites;
+    int batchsize;
 }
