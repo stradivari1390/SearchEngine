@@ -182,7 +182,7 @@ public class IndexingService {
 
     public void proceedPagesFromRedis(int batchSize) {
         long startIndex = 0;
-        long numPages = redisTemplate.opsForList().size(WebParser.REDIS_KEY);
+        long numPages = Optional.ofNullable(redisTemplate.opsForList().size(WebParser.REDIS_KEY)).orElse(0L);
         while (startIndex < numPages) {
             long endIndex = Math.min(startIndex + batchSize - 1, numPages - 1);
             List<Page> pageList = redisTemplate.opsForList().range(WebParser.REDIS_KEY, startIndex, endIndex);
