@@ -175,7 +175,7 @@ public class IndexingService {
             WebParser webParser = newWebParse(site);
             Map.Entry<Page, Boolean> indexedPage = webParser.addPage(url);
             Page page = indexedPage.getKey();
-            extractLemmasAndSave(page, indexedPage.getValue());
+            extractLemmasAndSave(page, indexedPage.getValue(), 1000);
             site.setStatus(StatusType.INDEXED);
             siteRepository.save(site);
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
@@ -196,19 +196,19 @@ public class IndexingService {
             long endIndex = Math.min(startIndex + batchSize - 1, numPages - 1);
             List<Page> pageList = redisTemplate.opsForList().range(WebParser.REDIS_KEY, startIndex, endIndex);
             pageRepository.saveAll(pageList);
-            pageList.forEach(p -> extractLemmasAndSave(p, true));
+            pageList.forEach(p -> extractLemmasAndSave(p, true, 1000));
             startIndex += batchSize;
         }
         redisTemplate.delete(WebParser.REDIS_KEY);
     }
 
 
-    private void extractLemmasAndSave(Page page, boolean newPage) {
+    private void extractLemmasAndSave(Page page, boolean newPage, int batchSize) {
         TagNode node = cleaner.clean(page.getContent());
         String plainText = node.getText().toString();
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(plainText);
-        List<Lemma> lemmasToInsert = new LinkedList<>();
-        List<Index> indicesToInsert = new LinkedList<>();
+        List<Lemma> lemmasToInsert = new ArrayList<>();
+        List<Index> indicesToInsert = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
             String lemmaString = entry.getKey();
             int rank = entry.getValue();
@@ -229,8 +229,16 @@ public class IndexingService {
             }
             indicesToInsert.add(index);
         }
-        lemmaRepository.saveAll(lemmasToInsert);
-        indexRepository.saveAll(indicesToInsert);
+        for (int i = 0; i < lemmasToInsert.size(); i += batchSize) {
+            int endIndex = Math.min(i + batchSize, lemmasToInsert.size() - 1);
+            List<Lemma> lemmasBatch = lemmasToInsert.subList(i, endIndex);
+            lemmaRepository.saveAll(lemmasBatch);
+        }
+        for (int i = 0; i < indicesToInsert.size(); i += batchSize) {
+            int endIndex = Math.min(i + batchSize, indicesToInsert.size() - 1);
+            List<Index> indicesBatch = indicesToInsert.subList(i, endIndex);
+            indexRepository.saveAll(indicesBatch);
+        }
     }
 
 //    private static void deletePagesDuplicates() {
