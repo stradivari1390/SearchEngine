@@ -7,9 +7,6 @@ import org.apache.log4j.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.redis.connection.RedisConnection;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,8 +28,6 @@ import java.util.function.ObjIntConsumer;
 
 @Service
 public class IndexingService {
-    @Autowired
-    private RedisConnectionFactory connectionFactory;
     Logger logger = LogManager.getLogger(IndexingService.class);
     private static final String RESULT = "result";
     private static final String ERROR = "error";
@@ -50,7 +45,6 @@ public class IndexingService {
     private List<ForkJoinPool> forkJoinPoolList;
     private List<Thread> threadList;
     private final Lemmatisator lemmatisator;
-    private final Object lock = new Object();
 
     @Autowired
     public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
@@ -69,7 +63,6 @@ public class IndexingService {
         this.config = config;
         this.lemmatisator = lemmatisator;
         WebParser.initiateValidationPatterns(initSiteList);
-        registerShutdownHook();
     }
 
     private void clearData() {
@@ -161,35 +154,53 @@ public class IndexingService {
 
     @SneakyThrows
     public Response indexPage(String url) {
-        if (indexing.compareAndSet(false, true)) {
-            if (!WebParser.isValidLink(url)) {
-                return new IndexResponse(new JSONObject().put("Данная страница находится за пределами сайтов, " +
-                        "указанных в конфигурационном файле", false), HttpStatus.BAD_REQUEST);
-            }
-            searchengine.config.Site initSite = new searchengine.config.Site();
-            for (searchengine.config.Site site : initSiteList.getSites()) {
-                if (url.replaceAll(HTTP_S_WWW, "")
-                        .contains(site.getUrl().replaceAll(HTTP_S_WWW, ""))) {
-                    initSite = site;
-                    break;
-                }
-            }
-            Site site = siteRepository.findSiteByUrl(initSite.getUrl());
-            if (site == null) {
-                site = new Site(initSite.getUrl(), initSite.getName());
-                siteRepository.save(site);
-            }
-            saveSiteStatus(site, StatusType.INDEXING);
-            WebParser webParser = newWebParse(site);
-            Map.Entry<Page, Boolean> indexedPage = webParser.addPage(url);
-            Page page = indexedPage.getKey();
-            extractLemmasAndSave(page, indexedPage.getValue(), initSiteList.getBatchsize());
-            saveSiteStatus(site, StatusType.INDEXED);
-            return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
-        } else {
-            return new IndexResponse(new JSONObject().put(RESULT, false)
+        if (!WebParser.isValidLink(url)) {
+            return new IndexResponse(new JSONObject()
+                    .put("Данная страница находится за пределами сайтов, " +
+                            "указанных в конфигурационном файле", false), HttpStatus.BAD_REQUEST);
+        }
+        Site site = siteRepository.findSiteByUrl(url);
+        if (site == null) site = createNewSite(url);
+        assert site != null;
+        if (site.getStatus() == StatusType.INDEXING) {
+            return new IndexResponse(new JSONObject()
                     .put(ERROR, "Индексация уже запущена"), HttpStatus.BAD_REQUEST);
         }
+        saveSiteStatus(site, StatusType.INDEXING);
+        WebParser webParser = newWebParse(site);
+        Page page = webParser.addPage(url).getKey();
+        Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
+        for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
+            String lemmaString = entry.getKey();
+            int rank = entry.getValue();
+            Lemma lemma = updateOrCreateLemma(site, lemmaString);
+            Index index = indexRepository.findByLemmaAndPage(lemma, page);
+            if (index == null) index = new Index(lemma, page, rank);
+            else index.setRank(rank);
+            indexRepository.save(index);
+        }
+        saveSiteStatus(site, StatusType.INDEXED);
+        return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
+    }
+
+    private Site createNewSite(String url) {
+        for (searchengine.config.Site initSite : initSiteList.getSites()) {
+            if (url.replaceAll(HTTP_S_WWW, "").contains(initSite.getUrl().replaceAll(HTTP_S_WWW, ""))) {
+                Site site = new Site(initSite.getUrl(), initSite.getName());
+                saveSiteStatus(site, StatusType.FAILED);
+                return site;
+            }
+        }
+        return null;
+    }
+
+    private Lemma updateOrCreateLemma(Site site, String lemmaString) {
+        Lemma lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
+        if (lemma == null) {
+            lemma = new Lemma(site, lemmaString);
+            lemmaRepository.save(lemma);
+        }
+        return lemma;
     }
 
     public static boolean isIndexing() {
@@ -203,6 +214,7 @@ public class IndexingService {
             long endIndex = Math.min(startIndex + batchSize - 1, numPages - 1);
             List<Page> pageList = redisTemplatePage.opsForList().range(WebParser.REDIS_KEY_PAGES, startIndex, endIndex);
             try {
+                assert pageList != null;
                 pageRepository.saveAll(pageList);
             } catch (NullPointerException e) {
                 logger.error(e.getMessage());
@@ -215,6 +227,7 @@ public class IndexingService {
 
     public void proceedLemmasFromRedis(int batchSize) {
         Set<String> lemmaKeys = redisTemplateLemma.keys("*:*");
+        assert lemmaKeys != null;
         int numLemmas = lemmaKeys.size();
         int startIndex = 0;
         while (startIndex < numLemmas) {
@@ -224,12 +237,7 @@ public class IndexingService {
                 Lemma lemma = redisTemplateLemma.opsForValue().get(key);
                 lemmaList.add(lemma);
             }
-            try {
-                lemmaRepository.saveAll(lemmaList);
-            } catch (NullPointerException e) {
-                logger.error(e.getMessage());
-                break;
-            }
+            lemmaRepository.saveAll(lemmaList);
             startIndex += batchSize;
         }
         redisTemplateLemma.delete(lemmaKeys);
@@ -241,92 +249,12 @@ public class IndexingService {
         while (startIndex < numIndices) {
             long endIndex = Math.min(startIndex + batchSize - 1, numIndices - 1);
             List<Index> indexList = redisTemplateIndex.opsForList().range(WebParser.REDIS_KEY_INDICES, startIndex, endIndex);
-            try {
-                indexRepository.saveAll(indexList);
-            } catch (NullPointerException e) {
-                logger.error(e.getMessage());
-                break;
-            }
+            assert indexList != null;
+            indexRepository.saveAll(indexList);
             startIndex += batchSize;
         }
         redisTemplateIndex.delete(WebParser.REDIS_KEY_INDICES);
     }
-
-    private void extractLemmasAndSave(Page page, boolean newPage, int batchSize) {
-        Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
-        List<Lemma> lemmasToInsert = new ArrayList<>();
-        List<Index> indicesToInsert = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
-            String lemmaString = entry.getKey();
-            int rank = entry.getValue();
-            Lemma lemma = new Lemma(page.getSite(), lemmaString);
-            lemmasToInsert.add(lemma);
-            Index index;
-            if (newPage) {
-                index = new Index(lemma, page, rank);
-            } else {
-                index = indexRepository.findByLemmaAndPage(lemma, page);
-                index.setRank(rank);
-            }
-            indicesToInsert.add(index);
-        }
-
-        saveBatch(lemmasToInsert, batchSize / 20, (batch, count) -> {
-            List<Lemma> lemmasBatch = new ArrayList<>(batch);
-            try {
-                lemmaRepository.saveAll(lemmasBatch);
-            } catch (DataIntegrityViolationException ex) {
-                synchronized (lock) {
-                    for (Lemma lemma : lemmasBatch) {
-                        Lemma existingLemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemma.getLemmaString(), lemma.getSite());
-                        if (existingLemma != null) {
-                            for (Index index : indicesToInsert) {
-                                if (index.getLemma().getLemmaString().equals(existingLemma.getLemmaString())) {
-                                    existingLemma.setFrequency(existingLemma.getFrequency() + 1);
-                                    lemmaRepository.save(existingLemma);
-                                    index.setLemma(existingLemma);
-                                    break;
-                                }
-                            }
-                        } else {
-                            lemmaRepository.save(lemma);
-                        }
-                    }
-                }
-            }
-        });
-
-        saveBatch(indicesToInsert, batchSize, (batch, count) -> {
-            List<Index> indicesBatch = new ArrayList<>(batch);
-            try {
-                indexRepository.saveAll(indicesBatch);
-            } catch (DataIntegrityViolationException ex) {
-                ex.printStackTrace();
-            }
-        });
-    }
-
-//    private static void deletePagesDuplicates() {
-//        Set<Page> set = new HashSet<>();
-//        List<Page> pagesWithoutDuplicates = new LinkedList<>();
-//        for (Page page : WebParser.getPages()) {     //time complexity O(n), space complexity O(n)
-//            if (!set.contains(page)) {
-//                set.add(page);
-//                pagesWithoutDuplicates.add(page);
-//            }
-//        }
-//        WebParser.setPages(pagesWithoutDuplicates);
-//        int s = pages.size();
-//        for(int i = 0; i < s - 1; i++) {
-//            for(int j = s - 1; j > i; j--) {
-//                if(pages.get(i).equals(pages.get(j))) {
-//                    pages.remove(j);
-//                    s = pages.size();
-//                }
-//            }
-//        }             time complexity O(n^2), space complexity O(1)
-//    }
-
 
     private WebParser newWebParse(Site site) {
         WebParser webParser = new WebParser(initSiteList, pageRepository, lemmaRepository, indexRepository, config,
@@ -347,28 +275,8 @@ public class IndexingService {
         return webParserList;
     }
 
-    private <T> void saveBatch(List<T> items, int batchSize, ObjIntConsumer<List<T>> saveFunction) {
-        for (int i = 0; i < items.size(); i += batchSize) {
-            int endIndex = Math.min(i + batchSize, items.size());
-            List<T> batch = items.subList(i, endIndex);
-            saveFunction.accept(batch, endIndex - i);
-        }
-    }
-
     private void saveSiteStatus(Site site, StatusType status) {
         site.setStatus(status);
         siteRepository.save(site);
-    }
-
-    public void flushDb() {
-        RedisConnection connection = connectionFactory.getConnection();
-        try {
-            connection.flushDb();
-        } finally {
-            connection.close();
-        }
-    }
-    private void registerShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread(this::flushDb));
     }
 }
