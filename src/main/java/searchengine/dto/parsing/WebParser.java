@@ -14,6 +14,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -22,6 +24,7 @@ import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import searchengine.config.Config;
@@ -38,8 +41,9 @@ import searchengine.repository.PageRepository;
 @Component
 @Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class WebParser extends RecursiveTask<Integer> {
+    private static final Logger logger = LogManager.getLogger(WebParser.class);
     private static final long serialVersionUID = 1L;  // Do I really need to serialize it and fields?
-//    These are two patterns to match links in script pages, second one consumes a huge amount of memory
+    //    These are two patterns to match links in script pages, second one consumes a huge amount of memory
 //    private static final String URL_REGEX1 = "((https?|ftp|gopher|telnet|file):((//)|(\\\\))+[\\w\\d:#@%/;$()~_?\\+-=\\\\\\.&]*)";
 //    private static final String URL_REGEX2 = "(?i)\\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\".,<>?«»“”‘’]))");
     private static final AtomicBoolean stop = new AtomicBoolean(false);
@@ -65,12 +69,12 @@ public class WebParser extends RecursiveTask<Integer> {
     private final RedisTemplate<String, Index> redisTemplateIndex;
     public static final String REDIS_KEY_PAGES = "pages";
     public static final String REDIS_KEY_INDICES = "indices";
-    //    private static final Object lock = new Object();
+    private static final Object lock = new Object();
     private static AtomicInteger count = new AtomicInteger(0);
     private static AtomicInteger pageIndex = new AtomicInteger(0);
     private static AtomicInteger lemmaIndex = new AtomicInteger(0);
     private int amount;
-    private final Object lock = new Object();
+
     @Autowired
     public WebParser(InitSiteList initSiteList, PageRepository pageRepository, LemmaRepository lemmaRepository,
                      IndexRepository indexRepository, Config config,
@@ -94,56 +98,79 @@ public class WebParser extends RecursiveTask<Integer> {
     @Override
     public Integer compute() {
         for (String link : toParseLinkList) {
-            if (!visitedLinks.contains(cleanUrl(link))) {
-                synchronized (stop) {
-                    if (stop.get()) {
-                        cancel(true);
-                        return 0;
-                    }
+            String cleanLink = cleanUrl(link);
+            if (visitedLinks.contains(cleanLink)) {
+                continue;
+            }
+            synchronized (stop) {
+                if (stop.get()) {
+                    cancel(true);
+                    return 0;
                 }
-                visitedLinks.add(cleanUrl(link));
-                Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
-                Page page = new Page(site, cleanUrl(link), htmlData.getValue(), htmlData.getKey());
-                page.setId(pageIndex.incrementAndGet());
-                redisTemplatePage.opsForList().rightPush(REDIS_KEY_PAGES, page);
-
-                Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
-                for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
-                    String lemmaString = entry.getKey();
-                    int rank = entry.getValue();
-                    String lemmaKey = site.getName() + ":" + lemmaString;
-                    Lemma lemma;
-                    if (redisTemplateLemma.hasKey(lemmaKey)) {
-                        lemma = redisTemplateLemma.opsForValue().get(lemmaKey);
-                        lemma.setFrequency(lemma.getFrequency() + 1);
-                    } else {
-                        lemma = new Lemma(site, lemmaString);
-                        lemma.setId(lemmaIndex.incrementAndGet());
-                    }
-                    redisTemplateLemma.opsForValue().set(lemmaKey, lemma);
-
-                    Index index = new Index(lemma, page, rank);
-                    redisTemplateIndex.opsForList().rightPush(REDIS_KEY_INDICES, index);
-                }
-
-                amount++;
-                System.out.print("\r pages done: " + count.incrementAndGet());
-
-                if (!foundLinks.isEmpty()) {
-                    for (int i = 0; i < foundLinks.size(); i += THRESHOLD) {
-                        int end = Math.min(foundLinks.size(), i + THRESHOLD);
-                        List<String> subList = foundLinks.subList(i, end);
-                        WebParser task = new WebParser(initSiteList, pageRepository, lemmaRepository, indexRepository,
-                                config, lemmatisator, subList, redisTemplatePage, redisTemplateLemma, redisTemplateIndex);
-                        task.setSite(site);
-                        task.fork();
-                        amount += task.join();
-                    }
-                    foundLinks.clear();
-                }
+            }
+            visitedLinks.add(cleanLink);
+            Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
+            Page page = new Page(site, cleanLink, htmlData.getValue(), htmlData.getKey());
+            page.setId(pageIndex.incrementAndGet());
+            savePage(page);
+            saveLemmasAndIndices(page);
+            System.out.print("\r pages done: " + count.incrementAndGet());
+            amount++;
+            if (!foundLinks.isEmpty()) {
+                processFoundLinks();
             }
         }
         return amount;
+    }
+
+    private void savePage(Page page) {
+        try {
+            redisTemplatePage.opsForList().rightPush(REDIS_KEY_PAGES, page);
+        } catch (RedisSystemException e) {
+            logger.error(e.getMessage());
+            System.exit(130);
+        }
+    }
+
+    private void saveLemmasAndIndices(Page page) {
+        Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
+        for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
+            String lemmaString = entry.getKey();
+            int rank = entry.getValue();
+            String lemmaKey = site.getName() + ":" + lemmaString;
+            Lemma lemma = updateOrCreateLemma(lemmaKey);
+            Index index = new Index(lemma, page, rank);
+            redisTemplateIndex.opsForList().rightPush(REDIS_KEY_INDICES, index);
+        }
+    }
+
+    private Lemma updateOrCreateLemma(String lemmaKey) {
+        synchronized (lock) {
+            if (redisTemplateLemma.hasKey(lemmaKey)) {
+                Lemma lemma = redisTemplateLemma.opsForValue().get(lemmaKey);
+                lemma.setFrequency(lemma.getFrequency() + 1);
+                redisTemplateLemma.opsForValue().set(lemmaKey, lemma);
+                return lemma;
+            } else {
+                Lemma lemma = new Lemma(site, lemmaKey.substring(site.getName().length() + 1));
+                lemma.setId(lemmaIndex.incrementAndGet());
+                redisTemplateLemma.opsForValue().set(lemmaKey, lemma);
+                return lemma;
+            }
+        }
+    }
+
+    private void processFoundLinks() {
+        for (int i = 0; i < foundLinks.size(); i += THRESHOLD) {
+            int end = Math.min(foundLinks.size(), i + THRESHOLD);
+            List<String> subList = foundLinks.subList(i, end);
+            WebParser task = new WebParser(initSiteList, pageRepository, lemmaRepository, indexRepository,
+                    config, lemmatisator, subList, redisTemplatePage, redisTemplateLemma, redisTemplateIndex);
+            task.setSite(site);
+            task.fork();
+            amount += task.join();
+        }
+        foundLinks.clear();
     }
 
     @SneakyThrows
