@@ -67,6 +67,8 @@ public class WebParser extends RecursiveTask<Integer> {
     public static final String REDIS_KEY_INDICES = "indices";
     //    private static final Object lock = new Object();
     private static AtomicInteger count = new AtomicInteger(0);
+    private static AtomicInteger pageIndex = new AtomicInteger(0);
+    private static AtomicInteger lemmaIndex = new AtomicInteger(0);
     private int amount;
     private final Object lock = new Object();
     @Autowired
@@ -102,6 +104,7 @@ public class WebParser extends RecursiveTask<Integer> {
                 visitedLinks.add(cleanUrl(link));
                 Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
                 Page page = new Page(site, cleanUrl(link), htmlData.getValue(), htmlData.getKey());
+                page.setId(pageIndex.incrementAndGet());
                 redisTemplatePage.opsForList().rightPush(REDIS_KEY_PAGES, page);
 
                 Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
@@ -115,6 +118,7 @@ public class WebParser extends RecursiveTask<Integer> {
                         lemma.setFrequency(lemma.getFrequency() + 1);
                     } else {
                         lemma = new Lemma(site, lemmaString);
+                        lemma.setId(lemmaIndex.incrementAndGet());
                     }
                     redisTemplateLemma.opsForValue().set(lemmaKey, lemma);
 
