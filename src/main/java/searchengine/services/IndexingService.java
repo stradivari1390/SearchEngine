@@ -4,12 +4,12 @@ import lombok.SneakyThrows;
 
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
-import org.htmlcleaner.HtmlCleaner;
-import org.htmlcleaner.TagNode;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,6 +31,8 @@ import java.util.function.ObjIntConsumer;
 
 @Service
 public class IndexingService {
+    @Autowired
+    private RedisConnectionFactory connectionFactory;
     Logger logger = LogManager.getLogger(IndexingService.class);
     private static final String RESULT = "result";
     private static final String ERROR = "error";
@@ -40,29 +42,34 @@ public class IndexingService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final InitSiteList initSiteList;
-    private final RedisTemplate<String, Page> redisTemplate;
+    private final RedisTemplate<String, Page> redisTemplatePage;
+    private final RedisTemplate<String, Lemma> redisTemplateLemma;
+    private final RedisTemplate<String, Index> redisTemplateIndex;
     private final Config config;
     private static AtomicBoolean indexing = new AtomicBoolean(false);
     private List<ForkJoinPool> forkJoinPoolList;
     private List<Thread> threadList;
     private final Lemmatisator lemmatisator;
-    private static final HtmlCleaner cleaner = new HtmlCleaner();
+    private final Object lock = new Object();
 
     @Autowired
     public IndexingService(SiteRepository siteRepository, PageRepository pageRepository,
                            LemmaRepository lemmaRepository, IndexRepository indexRepository,
-                           InitSiteList initSiteList, RedisTemplate<String, Page> redisTemplate,
+                           InitSiteList initSiteList, RedisTemplate<String, Page> redisTemplatePage,
+                           RedisTemplate<String, Lemma> redisTemplateLemma, RedisTemplate<String, Index> redisTemplateIndex,
                            Config config, Lemmatisator lemmatisator) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.initSiteList = initSiteList;
-        this.redisTemplate = redisTemplate;
+        this.redisTemplatePage = redisTemplatePage;
+        this.redisTemplateLemma = redisTemplateLemma;
+        this.redisTemplateIndex = redisTemplateIndex;
         this.config = config;
         this.lemmatisator = lemmatisator;
         WebParser.initiateValidationPatterns(initSiteList);
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> redisTemplate.delete(WebParser.REDIS_KEY)));
+        registerShutdownHook();
     }
 
     private void clearData() {
@@ -93,7 +100,11 @@ public class IndexingService {
         threadList.forEach(Thread::start);
         try {
             latch.await();
+
             proceedPagesFromRedis(initSiteList.getBatchsize());
+            proceedLemmasFromRedis(initSiteList.getBatchsize());
+            proceedIndicesFromRedis(initSiteList.getBatchsize());
+
             WebParser.clearVisitedLinks();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -124,7 +135,11 @@ public class IndexingService {
         if (indexing.compareAndSet(true, false)) {
             CompletableFuture.runAsync(() -> {
                 WebParser.stopCrawling();
+
                 proceedPagesFromRedis(initSiteList.getBatchsize());
+                proceedLemmasFromRedis(initSiteList.getBatchsize());
+                proceedIndicesFromRedis(initSiteList.getBatchsize());
+
                 WebParser.clearVisitedLinks();
                 forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
                 threadList.forEach(Thread::interrupt);
@@ -183,26 +198,62 @@ public class IndexingService {
 
     public void proceedPagesFromRedis(int batchSize) {
         long startIndex = 0;
-        long numPages = Optional.ofNullable(redisTemplate.opsForList().size(WebParser.REDIS_KEY)).orElse(0L);
+        long numPages = Optional.ofNullable(redisTemplatePage.opsForList().size(WebParser.REDIS_KEY_PAGES)).orElse(0L);
         while (startIndex < numPages) {
             long endIndex = Math.min(startIndex + batchSize - 1, numPages - 1);
-            List<Page> pageList = redisTemplate.opsForList().range(WebParser.REDIS_KEY, startIndex, endIndex);
+            List<Page> pageList = redisTemplatePage.opsForList().range(WebParser.REDIS_KEY_PAGES, startIndex, endIndex);
             try {
                 pageRepository.saveAll(pageList);
-                pageList.forEach(p -> extractLemmasAndSave(p, true, initSiteList.getBatchsize()));
             } catch (NullPointerException e) {
                 logger.error(e.getMessage());
                 break;
             }
             startIndex += batchSize;
         }
-        redisTemplate.delete(WebParser.REDIS_KEY);
+        redisTemplatePage.delete(WebParser.REDIS_KEY_PAGES);
+    }
+
+    public void proceedLemmasFromRedis(int batchSize) {
+        Set<String> lemmaKeys = redisTemplateLemma.keys("*:*");
+        int numLemmas = lemmaKeys.size();
+        int startIndex = 0;
+        while (startIndex < numLemmas) {
+            int endIndex = Math.min(startIndex + batchSize - 1, numLemmas - 1);
+            List<Lemma> lemmaList = new ArrayList<>();
+            for (String key : new ArrayList<>(lemmaKeys).subList(startIndex, endIndex + 1)) {
+                Lemma lemma = redisTemplateLemma.opsForValue().get(key);
+                lemmaList.add(lemma);
+            }
+            try {
+                lemmaRepository.saveAll(lemmaList);
+            } catch (NullPointerException e) {
+                logger.error(e.getMessage());
+                break;
+            }
+            startIndex += batchSize;
+        }
+        redisTemplateLemma.delete(lemmaKeys);
+    }
+
+    public void proceedIndicesFromRedis(int batchSize) {
+        long startIndex = 0;
+        long numIndices = Optional.ofNullable(redisTemplateIndex.opsForList().size(WebParser.REDIS_KEY_INDICES)).orElse(0L);
+        while (startIndex < numIndices) {
+            long endIndex = Math.min(startIndex + batchSize - 1, numIndices - 1);
+            List<Index> indexList = redisTemplateIndex.opsForList().range(WebParser.REDIS_KEY_INDICES, startIndex, endIndex);
+            try {
+                indexRepository.saveAll(indexList);
+            } catch (NullPointerException e) {
+                logger.error(e.getMessage());
+                break;
+            }
+            startIndex += batchSize;
+        }
+        redisTemplateIndex.delete(WebParser.REDIS_KEY_INDICES);
     }
 
     private void extractLemmasAndSave(Page page, boolean newPage, int batchSize) {
-        TagNode node = cleaner.clean(page.getContent());
-        String plainText = node.getText().toString();
-        Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(plainText);
+        Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
         List<Lemma> lemmasToInsert = new ArrayList<>();
         List<Index> indicesToInsert = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
@@ -220,24 +271,26 @@ public class IndexingService {
             indicesToInsert.add(index);
         }
 
-        saveBatch(lemmasToInsert, 100, (batch, count) -> {
+        saveBatch(lemmasToInsert, batchSize / 20, (batch, count) -> {
             List<Lemma> lemmasBatch = new ArrayList<>(batch);
             try {
                 lemmaRepository.saveAll(lemmasBatch);
             } catch (DataIntegrityViolationException ex) {
-                for (Lemma lemma : lemmasBatch) {
-                    Lemma existingLemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemma.getLemmaString(), lemma.getSite());
-                    if (existingLemma != null) {
-                        for (Index index : indicesToInsert) {
-                            if (index.getLemma().getLemmaString().equals(existingLemma.getLemmaString())) {
-                                existingLemma.setFrequency(existingLemma.getFrequency() + 1);
-                                lemmaRepository.save(existingLemma);
-                                index.setLemma(existingLemma);
-                                break;
+                synchronized (lock) {
+                    for (Lemma lemma : lemmasBatch) {
+                        Lemma existingLemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemma.getLemmaString(), lemma.getSite());
+                        if (existingLemma != null) {
+                            for (Index index : indicesToInsert) {
+                                if (index.getLemma().getLemmaString().equals(existingLemma.getLemmaString())) {
+                                    existingLemma.setFrequency(existingLemma.getFrequency() + 1);
+                                    lemmaRepository.save(existingLemma);
+                                    index.setLemma(existingLemma);
+                                    break;
+                                }
                             }
+                        } else {
+                            lemmaRepository.save(lemma);
                         }
-                    } else {
-                        lemmaRepository.save(lemma);
                     }
                 }
             }
@@ -277,7 +330,7 @@ public class IndexingService {
 
     private WebParser newWebParse(Site site) {
         WebParser webParser = new WebParser(initSiteList, pageRepository, lemmaRepository, indexRepository, config,
-                lemmatisator, Collections.singletonList(site.getUrl()), redisTemplate);
+                lemmatisator, Collections.singletonList(site.getUrl()), redisTemplatePage, redisTemplateLemma, redisTemplateIndex);
         webParser.setSite(site);
         return webParser;
     }
@@ -305,5 +358,17 @@ public class IndexingService {
     private void saveSiteStatus(Site site, StatusType status) {
         site.setStatus(status);
         siteRepository.save(site);
+    }
+
+    public void flushDb() {
+        RedisConnection connection = connectionFactory.getConnection();
+        try {
+            connection.flushDb();
+        } finally {
+            connection.close();
+        }
+    }
+    private void registerShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread(this::flushDb));
     }
 }
