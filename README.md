@@ -1,4 +1,5 @@
 # Search Engine Project
+<img src="https://advertiseonbing-blob.azureedge.net/blob/bingads/media/page/solutions/search-engine-marketing-page-refresh/pub-2826-image01.jpg?ext=.jpg" alt="Search Engine Project" height="100">
 
 This is a search engine project developed in Java and using various libraries and frameworks. The project is designed to index a limited amount of sites and their web pages and provide a relevant search functionality.
 
@@ -8,6 +9,7 @@ This is a search engine project developed in Java and using various libraries an
 * Spring Framework
 * Spring Boot
 * Spring Data JPA
+* Spring MVC
 * Redis
 * MySQL
 * MySQL Connector
@@ -17,6 +19,7 @@ This is a search engine project developed in Java and using various libraries an
 * Log4j 2
 * Thymeleaf
 * Apache Lucene Morphology
+* Maven
 
 ## API Endpoints
 
@@ -51,5 +54,6 @@ $ mvn spring-boot:run
 The project was developed by __Stanislav Romanov__. If you'd like to contribute to the project, please feel free to submit a pull request.
 
 ## License
+![Apache](https://www.apache.org/img/asf-estd-1999-logo.jpg)  
 This application makes use of the Lucene open-source library, which is subject to the Apache Software License 2.0.
 More information about Lucene can be found at http://lucene.apache.org.
