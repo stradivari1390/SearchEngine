@@ -1,4 +1,4 @@
-package searchengine.dto.parsing;
+package searchengine.services.parsing;
 
 import java.io.IOException;
 
@@ -7,15 +7,12 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -24,8 +21,6 @@ import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
-import org.springframework.data.redis.RedisSystemException;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
@@ -41,13 +36,8 @@ import searchengine.repository.PageRepository;
 @Component
 @Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class WebParser extends RecursiveTask<Integer> {
-    private static final Logger logger = LogManager.getLogger(WebParser.class);
-    private static final long serialVersionUID = 1L;  // Do I really need to serialize it and fields?
-    //    These are two patterns to match links in script pages, second one consumes a huge amount of memory
-//    private static final String URL_REGEX1 = "((https?|ftp|gopher|telnet|file):((//)|(\\\\))+[\\w\\d:#@%/;$()~_?\\+-=\\\\\\.&]*)";
-//    private static final String URL_REGEX2 = "(?i)\\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\".,<>?«»“”‘’]))");
     private static final AtomicBoolean stop = new AtomicBoolean(false);
-    private static final int THRESHOLD = 25;
+    private static final int THRESHOLD = 10;
     @Getter
     @Setter
     private Site site;
@@ -64,22 +54,12 @@ public class WebParser extends RecursiveTask<Integer> {
     private static Pattern file;
     private static Pattern pageElement;
     private static Pattern contactLink;
-    private final RedisTemplate<String, Page> redisTemplatePage;
-    private final RedisTemplate<String, Lemma> redisTemplateLemma;
-    private final RedisTemplate<String, Index> redisTemplateIndex;
-    public static final String REDIS_KEY_PAGES = "pages";
-    public static final String REDIS_KEY_INDICES = "indices";
-    private static final Object lock = new Object();
-    private static AtomicInteger count = new AtomicInteger(0);
-    private static AtomicInteger pageIndex = new AtomicInteger(0);
-    private static AtomicInteger lemmaIndex = new AtomicInteger(0);
     private int amount;
 
     @Autowired
     public WebParser(InitSiteList initSiteList, PageRepository pageRepository, LemmaRepository lemmaRepository,
                      IndexRepository indexRepository, Config config,
-                     Lemmatisator lemmatisator, List<String> toParseLinkList, RedisTemplate<String, Page> redisTemplatePage,
-                     RedisTemplate<String, Lemma> redisTemplateLemma, RedisTemplate<String, Index> redisTemplateIndex) {
+                     Lemmatisator lemmatisator, List<String> toParseLinkList) {
         this.initSiteList = initSiteList;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
@@ -87,10 +67,7 @@ public class WebParser extends RecursiveTask<Integer> {
         this.config = config;
         this.lemmatisator = lemmatisator;
         this.toParseLinkList = toParseLinkList;
-        this.redisTemplateLemma = redisTemplateLemma;
-        this.redisTemplateIndex = redisTemplateIndex;
         foundLinks = new ArrayList<>();
-        this.redisTemplatePage = redisTemplatePage;
         amount = 0;
     }
 
@@ -111,10 +88,8 @@ public class WebParser extends RecursiveTask<Integer> {
             visitedLinks.add(cleanLink);
             Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
             Page page = new Page(site, cleanLink, htmlData.getValue(), htmlData.getKey());
-            page.setId(pageIndex.incrementAndGet());
-            savePage(page);
+            pageRepository.save(page);
             saveLemmasAndIndices(page);
-            System.out.print("\r pages done: " + count.incrementAndGet());
             amount++;
             if (!foundLinks.isEmpty()) {
                 processFoundLinks();
@@ -123,41 +98,26 @@ public class WebParser extends RecursiveTask<Integer> {
         return amount;
     }
 
-    private void savePage(Page page) {
-        try {
-            redisTemplatePage.opsForList().rightPush(REDIS_KEY_PAGES, page);
-        } catch (RedisSystemException e) {
-            logger.error(e.getMessage());
-            System.exit(130);
-        }
-    }
-
     private void saveLemmasAndIndices(Page page) {
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
         for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
             String lemmaString = entry.getKey();
             int rank = entry.getValue();
-            String lemmaKey = site.getName() + ":" + lemmaString;
-            Lemma lemma = updateOrCreateLemma(lemmaKey);
+            Lemma lemma = updateOrCreateLemma(lemmaString);
             Index index = new Index(lemma, page, rank);
-            redisTemplateIndex.opsForList().rightPush(REDIS_KEY_INDICES, index);
+            indexRepository.save(index);
         }
     }
 
-    private Lemma updateOrCreateLemma(String lemmaKey) {
-        synchronized (lock) {
-            if (redisTemplateLemma.hasKey(lemmaKey)) {
-                Lemma lemma = redisTemplateLemma.opsForValue().get(lemmaKey);
+    private synchronized Lemma updateOrCreateLemma(String lemmaString) {
+        Lemma lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
+            if (lemma != null) {
                 lemma.setFrequency(lemma.getFrequency() + 1);
-                redisTemplateLemma.opsForValue().set(lemmaKey, lemma);
-                return lemma;
             } else {
-                Lemma lemma = new Lemma(site, lemmaKey.substring(site.getName().length() + 1));
-                lemma.setId(lemmaIndex.incrementAndGet());
-                redisTemplateLemma.opsForValue().set(lemmaKey, lemma);
-                return lemma;
+                lemma = new Lemma(site, lemmaString);
             }
-        }
+        lemmaRepository.save(lemma);
+        return lemma;
     }
 
     private void processFoundLinks() {
@@ -165,7 +125,7 @@ public class WebParser extends RecursiveTask<Integer> {
             int end = Math.min(foundLinks.size(), i + THRESHOLD);
             List<String> subList = foundLinks.subList(i, end);
             WebParser task = new WebParser(initSiteList, pageRepository, lemmaRepository, indexRepository,
-                    config, lemmatisator, subList, redisTemplatePage, redisTemplateLemma, redisTemplateIndex);
+                    config, lemmatisator, subList);
             task.setSite(site);
             task.fork();
             amount += task.join();
@@ -211,8 +171,8 @@ public class WebParser extends RecursiveTask<Integer> {
         }
         String rootPattern = rootPatterns.deleteCharAt(rootPatterns.length() - 1).toString();
         root = Pattern.compile(rootPattern);
-        file = Pattern.compile("([\\.-](?i)(jpg|bmp|png|gif|pdf|doc|xls|ppt" +
-                "|jpeg|zip|tar|jar|gz|svg|pptx|docx|xlsx))$");
+        file = Pattern.compile("([\\.-](?i)(jpg|bmp|png|gif|pdf|doc|xls|ppt|jpeg|zip|tar|jar|gz|svg|" +
+                "pptx|docx|xlsx|(?:mp4|avi|wmv|flv|mov|mkv|webm|mpeg|mpg)(?=[\\.-]|$)))");
         pageElement = Pattern.compile("#");
         contactLink = Pattern.compile("(?i)(tel:|tg:|mailto:)");
     }

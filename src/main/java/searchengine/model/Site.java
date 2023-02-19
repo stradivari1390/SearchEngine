@@ -13,6 +13,7 @@ import java.util.Set;
 @Setter
 @ToString
 @Entity
+@Table(name = "site")
 public class Site {
 
     public Site(String url, String name) {
@@ -25,21 +26,21 @@ public class Site {
     @Column(name = "id", nullable = false)
     private int id;
 
+    @Column(name = "status", nullable = false, length = 10)
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')")
     private StatusType status;
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "status_time", nullable = false)
     private Date statusTime;
 
-    @Column(name = "last_error", columnDefinition = "TEXT")
+    @Column(name = "last_error", columnDefinition = "VARCHAR(255)")
     private String lastError;
 
-    @Column(name = "url", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "url", nullable = false, columnDefinition = "VARCHAR(100)")
     private String url;
 
-    @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(50)")
     private String name;
 
     @OneToMany(mappedBy = "site", fetch = FetchType.EAGER)

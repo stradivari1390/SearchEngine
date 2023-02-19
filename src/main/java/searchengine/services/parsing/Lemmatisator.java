@@ -1,4 +1,4 @@
-package searchengine.dto.parsing;
+package searchengine.services.parsing;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.morphology.LuceneMorphology;

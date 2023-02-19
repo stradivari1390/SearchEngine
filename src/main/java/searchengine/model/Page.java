@@ -14,7 +14,7 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "Page", indexes = {
+@Table(name = "page", indexes = {
         @Index(name = "idx_page_path_unq", columnList = "path", unique = true)
 })
 public class Page {
@@ -42,7 +42,7 @@ public class Page {
     @Column(name = "code", nullable = false)
     private int code;
 
-    @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @OneToMany(mappedBy = "page", fetch = FetchType.LAZY)

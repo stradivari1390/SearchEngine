@@ -6,13 +6,9 @@ indexing-settings:
       name: Skillbox
 #    - url: https://playback.ru/
 #      name: PlayBack.Ru
+    - url: https://dombulgakova.ru/
+      name: Дом Булгакова
 
-#    - url: https://disneyland.disney.go.com/
-#      name: DisneyLand
-    - url: https://eng.rudn.ru/
-      name: PFUoR
-#    - url: https://sciencedirect.com/
-#      name: Science Direct
   batchsize: 1000
 
 config:
@@ -27,9 +23,6 @@ spring:
 #    proxy-target-class: false
 #  thymeleaf:
 #    prefix: classpath:/templates/
-  redis:
-    host: localhost
-    port: 6379
   http:
     log-request-details: true
   mvc:
@@ -39,11 +32,13 @@ spring:
 #    serialization:
 #      fail-on-empty-beans: false
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/search_engine?currentSchema=search_engine
+    username: postgres
     password: 12345678
-    url: jdbc:mysql://localhost:3306/search_engine
   jpa:
+    hibernate:
+      ddl-auto: update
     mapping:
       - class: searchengine.model.Site
       - class: searchengine.model.Page
@@ -51,17 +46,17 @@ spring:
       - class: searchengine.model.Index
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.PostgreSQL95Dialect
         jdbc:
           batch_size: 1000
           order_inserts: true
           order_deletes: true
           order_updates: true
         generate_statistics: true
-    hibernate:
-      ddl-auto: create-drop
     show-sql: true
     open-in-view: false
+  session:
+    factory_class: org.hibernate.boot.spi.SessionFactoryOptions
 
 logging:
   level:

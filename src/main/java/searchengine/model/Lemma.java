@@ -16,7 +16,7 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "Lemma", indexes = {
+@Table(name = "lemma", indexes = {
         @javax.persistence.Index(name = "idx_lemma_site_id_lemma_unq", columnList = "site_id, lemma", unique = true)
 }, uniqueConstraints = {
         @UniqueConstraint(columnNames = {"lemma", "site_id"})
@@ -38,7 +38,7 @@ public class Lemma implements Comparable<Lemma>{
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
-    @Column(name = "lemma", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "lemma", nullable = false, columnDefinition = "VARCHAR(45)")
     private String lemmaString;
 
     @Column(name = "frequency", nullable = false)
