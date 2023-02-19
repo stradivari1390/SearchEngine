@@ -50,6 +50,8 @@ $ cd SearchEngine
 $ mvn spring-boot:run
 ```
 
+After exiting, you can optimize disk space usage by freeing up storage occupied by the SQL binary logs and pagefile.sys.
+
 ## Contributors
 The project was developed by __Stanislav Romanov__. If you'd like to contribute to the project, please feel free to submit a pull request.
 
