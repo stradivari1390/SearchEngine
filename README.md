@@ -106,12 +106,12 @@ This tab opens by default. It displays general statistics for all sites, as well
 ### Control
 This tab contains search engine management tools - starting and stopping full indexing (re-indexing), as well as the ability to add (update) a separate page using the link:
 
-<img src="src/main/resources/front2.jpg" alt="control" height="600">
+<img src="src/main/resources/front2.jpg" alt="control" width="600">
 
 ### Search
 This page is for testing the search engine. It contains a search field, a drop-down list with a choice of a site for search, and when you click on the "Find" button, search results are displayed (by the /api/search API request):
 
-<img src="src/main/resources/front3.jpg" alt="search" height="600">
+<img src="src/main/resources/front3.jpg" alt="search" width="600">
 
 All information in bookmarks is loaded as source documents to API applications. When registering, requests are also sent.
 
