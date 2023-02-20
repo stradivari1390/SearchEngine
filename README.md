@@ -68,9 +68,9 @@ You will need to configure the database connection details in the application.ya
 
 ## Endpoints
 ### Indexing Controller
-* `GET /api/startIndexing`: Starts the indexing process.
-* `GET /api/stopIndexing`: Stops the indexing process.
-* `POST /api/indexPage?url={url}`: Indexes a single page.
+* `GET /api/startIndexing`: starts the indexing process.
+* `GET /api/stopIndexing`: stops the indexing process.
+* `POST /api/indexPage?url={url}`: indexes a single page.
 
 **Responses**
 
@@ -78,7 +78,7 @@ IndexResponse: Returns a JSON object with a result field indicating whether the 
 
 ErrorResponse: Returns a JSON object with an error field describing the error.
 ### Searching Controller
-* `GET /api/search?query={query}&site={siteUrl}&offset={offset}&limit={limit}`: Searches for pages that match the query string.
+* `GET /api/search?query={query}&site={siteUrl}&offset={offset}&limit={limit}`: searches for pages that match the query string.
 
 **Responses**
 
@@ -86,7 +86,7 @@ SearchResponse: Returns a JSON object with a result field indicating whether the
 
 ErrorResponse: Returns a JSON object with an error field describing the error.
 ### Statistic Controller
-* `GET /api/statistics`: Returns statistics on the indexed sites.
+* `GET /api/statistics`: returns statistics on the indexed sites.
 
 **Responses**
 
@@ -101,17 +101,17 @@ The web interface (frontend component) of the project to which you can gain acce
 ### Dashboard
 This tab opens by default. It displays general statistics for all sites, as well as detailed statistics and status for each of the sites (statistics obtained by querying /api/statistics).
 
-<img src="src/main/resources/front1.jpg" alt="dashboard" height="250">
+<img src="src/main/resources/front1.jpg" alt="dashboard" width="600">
 
 ### Control
 This tab contains search engine management tools - starting and stopping full indexing (re-indexing), as well as the ability to add (update) a separate page using the link:
 
-<img src="src/main/resources/front2.jpg" alt="control" height="250">
+<img src="src/main/resources/front2.jpg" alt="control" height="600">
 
 ### Search
 This page is for testing the search engine. It contains a search field, a drop-down list with a choice of a site for search, and when you click on the "Find" button, search results are displayed (by the /api/search API request):
 
-<img src="src/main/resources/front3.jpg" alt="search" height="250">
+<img src="src/main/resources/front3.jpg" alt="search" height="600">
 
 All information in bookmarks is loaded as source documents to API applications. When registering, requests are also sent.
 
