@@ -154,7 +154,7 @@
                     <showWeaveInfo/>
                     <forceAjcCompile>true</forceAjcCompile>
                     <Xlint>ignore</Xlint>
-                    <complianceLevel>1.8</complianceLevel>
+                    <complianceLevel>${java.version}</complianceLevel>
                     <sources/>
                     <weaveDirectories>
                         <weaveDirectory>${project.build.directory}/classes</weaveDirectory>
