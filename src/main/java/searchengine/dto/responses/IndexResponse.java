@@ -1,11 +1,11 @@
-package searchengine.responses;
+package searchengine.dto.responses;
 
 import lombok.AllArgsConstructor;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 
 @AllArgsConstructor
-public class StatisticsResponse implements Response {
+public class IndexResponse implements Response {
 
     private JSONObject response;
     private HttpStatus httpStatus;
@@ -18,12 +18,5 @@ public class StatisticsResponse implements Response {
     @Override
     public HttpStatus getHttpStatus() {
         return httpStatus;
-    }
-
-    @Override
-    public String toString() {
-        return "StatisticsResponse{" +
-                "response=" + response +
-                '}';
     }
 }

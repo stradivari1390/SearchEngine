@@ -2,13 +2,15 @@ package searchengine.controllers;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
-import searchengine.responses.Response;
+
+import searchengine.dto.responses.StatisticsResponse;
 import searchengine.services.StatisticsService;
 
 @RestController
@@ -23,12 +25,11 @@ public class StatisticController {
     public StatisticController(StatisticsService statisticsService) {
         this.statisticsService = statisticsService;
     }
-    @ResponseBody
     @GetMapping("/statistics")
-    public ResponseEntity<Response> statistics() {
+    public ResponseEntity<StatisticsResponse> statistics() {
         logger.info("Received request to get statistics");
-        Response statisticsResponse = statisticsService.getStatistics();
+        StatisticsResponse statisticsResponse = statisticsService.getStatistics();
         logger.info(statisticsResponse.toString());
-        return new ResponseEntity<>(statisticsResponse, statisticsResponse.getHttpStatus());
+        return new ResponseEntity<>(statisticsResponse, HttpStatus.OK);
     }
 }

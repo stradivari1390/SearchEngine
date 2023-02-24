@@ -1,7 +1,13 @@
 package searchengine.dto.search;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 
+@AllArgsConstructor
+@NoArgsConstructor
 @Data
 public class SearchResult implements Comparable<SearchResult> {
 
@@ -23,5 +29,17 @@ public class SearchResult implements Comparable<SearchResult> {
     @Override
     public String toString() {
         return "title: " + title + "\nuri: " + uri + "\nsnippet:\n" + snippet + "\nrel: " + relevance + "\n";
+    }
+
+    @SneakyThrows
+    public JSONObject toJsonObject() {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("siteUrl", siteUrl);
+        jsonObject.put("siteName", siteName);
+        jsonObject.put("uri", uri);
+        jsonObject.put("title", title);
+        jsonObject.put("snippet", snippet);
+        jsonObject.put("relevance", relevance);
+        return jsonObject;
     }
 }

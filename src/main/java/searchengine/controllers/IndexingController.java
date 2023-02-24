@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import searchengine.responses.Response;
+import searchengine.dto.responses.Response;
 import searchengine.services.IndexingService;
 
 @RestController

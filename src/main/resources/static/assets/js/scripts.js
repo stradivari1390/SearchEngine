@@ -1584,11 +1584,11 @@ var API = function(){
     
                     var $statistics = $('.Statistics');
                     $statistics.find('.HideBlock').not('.Statistics-example').remove();
-                    $('#totalSites').text(result.statistics.total.sites);
-                    $('#totalPages').text(result.statistics.total.pages);
-                    $('#totalLemmas').text(result.statistics.total.lemmas);
+                    $('#totalSites').text(result.totalSites);
+                    $('#totalPages').text(result.totalPages);
+                    $('#totalLemmas').text(result.totalLemmas);
                     $('select[name="site"] option').not(':first-child').remove();
-                    result.statistics.detailed.forEach(function(site){
+                    result.detailedStatistics.forEach(function(site){
                         var $blockSiteExample = $('.Statistics-example').clone(true);
                         var statusClass = '';
                         switch (site.status) {
@@ -1601,7 +1601,9 @@ var API = function(){
                             case 'INDEXING':
                                 statusClass = 'Statistics-status_pause';
                                 break;
-                            
+                            default:
+                                statusClass = '';
+                                break;
                         }
                         $('select[name="site"]').append('' +
                             '<option value="' + site.url + '">' +
@@ -1623,7 +1625,7 @@ var API = function(){
                                 time.getSeconds() +
                                 '</div><div class="Statistics-option"><strong>Pages:</strong> ' + site.pages +
                                 '</div><div class="Statistics-option"><strong>Lemmas:</strong> ' + site.lemmas +
-                                '</div><div class="Statistics-option Statistics-option_error"><strong>Error:</strong> ' + site.error + '</div>'+
+                                '</div><div class="Statistics-option Statistics-option_error"><strong>Error:</strong> ' + (site.error || "") + '</div>' +
                                 '')
     
                         

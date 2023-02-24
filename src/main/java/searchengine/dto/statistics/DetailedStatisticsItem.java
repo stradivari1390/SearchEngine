@@ -2,14 +2,12 @@ package searchengine.dto.statistics;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-import searchengine.model.Site;
+import lombok.SneakyThrows;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 public class DetailedStatisticsItem {
-
     private String url;
     private String name;
     private String status;
@@ -17,16 +15,17 @@ public class DetailedStatisticsItem {
     private String error;
     private int pages;
     private int lemmas;
-    private Site site;
 
-    public DetailedStatisticsItem(Site site, int pages, int lemmas) {
-        this.site = site;
-        url = site.getUrl();
-        name = site.getName();
-        status = site.getStatus().toString();
-        statusTime = site.getStatusTime().getTime();
-        error = site.getLastError();
-        this.pages = pages;
-        this.lemmas = lemmas;
+    @SneakyThrows
+    public JSONObject toJsonObject() {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("url", url);
+        jsonObject.put("name", name);
+        jsonObject.put("status", status);
+        jsonObject.put("statusTime", statusTime);
+        jsonObject.put("error", error);
+        jsonObject.put("pages", pages);
+        jsonObject.put("lemmas", lemmas);
+        return jsonObject;
     }
 }

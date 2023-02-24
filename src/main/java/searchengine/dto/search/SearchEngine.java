@@ -1,12 +1,9 @@
 package searchengine.dto.search;
 
-import lombok.Data;
 import lombok.SneakyThrows;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
@@ -18,23 +15,23 @@ import searchengine.services.parsing.Lemmatisator;
 import java.util.*;
 
 @Component
-@Scope(scopeName = ConfigurableBeanFactory.SCOPE_SINGLETON)
-@Data
 public final class SearchEngine {
 
-    private Lemmatisator lemmatisator;
-    private IndexRepository indexRepository;
-    private PageRepository pageRepository;
-    private SiteRepository siteRepository;
-    private LemmaRepository lemmaRepository;
+    private final Lemmatisator lemmatisator;
+    private final IndexRepository indexRepository;
+    private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
+    private final LemmaRepository lemmaRepository;
 
     @Autowired
     public SearchEngine(SiteRepository siteRepository, PageRepository pageRepository,
-                        LemmaRepository lemmaRepository, IndexRepository indexRepository) {
+                        LemmaRepository lemmaRepository, IndexRepository indexRepository,
+                        Lemmatisator lemmatisator) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
+        this.lemmatisator = lemmatisator;
     }
 
     public Search search(String query, Site site) {
@@ -60,7 +57,6 @@ public final class SearchEngine {
 
     @SneakyThrows
     private Set<SearchResult> addSearchQuery(Site site, String query, List<Page> pageList) {
-        lemmatisator = new Lemmatisator();
         Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
         Set<Lemma> lemmaSet = new HashSet<>();
         lemmas.keySet().forEach(lemma -> lemmaSet.add(lemmaRepository.findLemmaByLemmaStringAndSite(lemma, site)));

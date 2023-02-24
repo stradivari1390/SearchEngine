@@ -1,20 +1,17 @@
-package searchengine.responses;
+package searchengine.dto.responses;
 
 import lombok.AllArgsConstructor;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 
 @AllArgsConstructor
-public class IndexResponse implements Response {
-
+public class ErrorResponse implements Response {
     private JSONObject response;
     private HttpStatus httpStatus;
-
     @Override
     public JSONObject get() {
         return response;
     }
-
     @Override
     public HttpStatus getHttpStatus() {
         return httpStatus;

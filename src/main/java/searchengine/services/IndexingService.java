@@ -16,8 +16,8 @@ import searchengine.services.parsing.Lemmatisator;
 import searchengine.model.*;
 import searchengine.repository.*;
 import searchengine.services.parsing.WebParser;
-import searchengine.responses.IndexResponse;
-import searchengine.responses.Response;
+import searchengine.dto.responses.IndexResponse;
+import searchengine.dto.responses.Response;
 
 import java.util.*;
 import java.util.concurrent.*;
