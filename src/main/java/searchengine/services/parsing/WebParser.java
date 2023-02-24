@@ -37,7 +37,7 @@ import searchengine.repository.PageRepository;
 @Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class WebParser extends RecursiveTask<Integer> {
     private static final AtomicBoolean stop = new AtomicBoolean(false);
-    private static final int THRESHOLD = 10;
+    private static final int THRESHOLD = 5;
     @Getter
     @Setter
     private Site site;
@@ -47,7 +47,7 @@ public class WebParser extends RecursiveTask<Integer> {
     private final IndexRepository indexRepository;
     private final Config config;
     private Lemmatisator lemmatisator;
-    private List<String> foundLinks;
+    private Set<String> foundLinks;
     private static List<String> visitedLinks = new CopyOnWriteArrayList<>();
     private List<String> toParseLinkList;
     private static Pattern root;
@@ -55,6 +55,7 @@ public class WebParser extends RecursiveTask<Integer> {
     private static Pattern pageElement;
     private static Pattern contactLink;
     private int amount;
+    private final Object lock = new Object();
 
     @Autowired
     public WebParser(InitSiteList initSiteList, PageRepository pageRepository, LemmaRepository lemmaRepository,
@@ -67,7 +68,7 @@ public class WebParser extends RecursiveTask<Integer> {
         this.config = config;
         this.lemmatisator = lemmatisator;
         this.toParseLinkList = toParseLinkList;
-        foundLinks = new ArrayList<>();
+        foundLinks = new HashSet<>();
         amount = 0;
     }
 
@@ -75,25 +76,22 @@ public class WebParser extends RecursiveTask<Integer> {
     @Override
     public Integer compute() {
         for (String link : toParseLinkList) {
+            if (stop.get()) break;
             String cleanLink = cleanUrl(link);
-            if (visitedLinks.contains(cleanLink)) {
-                continue;
-            }
-            synchronized (stop) {
-                if (stop.get()) {
-                    cancel(true);
-                    return 0;
+            synchronized (lock) {
+                if (visitedLinks.contains(cleanLink)) {
+                    continue;
                 }
+                visitedLinks.add(cleanLink);
             }
-            visitedLinks.add(cleanLink);
             Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
             Page page = new Page(site, cleanLink, htmlData.getValue(), htmlData.getKey());
             pageRepository.save(page);
             saveLemmasAndIndices(page);
             amount++;
-            if (!foundLinks.isEmpty()) {
-                processFoundLinks();
-            }
+        }
+        if (!foundLinks.isEmpty()) {
+            processFoundLinks();
         }
         return amount;
     }
@@ -101,6 +99,7 @@ public class WebParser extends RecursiveTask<Integer> {
     private void saveLemmasAndIndices(Page page) {
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
         for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
+            if (stop.get()) break;
             String lemmaString = entry.getKey();
             int rank = entry.getValue();
             Lemma lemma = updateOrCreateLemma(lemmaString);
@@ -111,26 +110,27 @@ public class WebParser extends RecursiveTask<Integer> {
 
     private synchronized Lemma updateOrCreateLemma(String lemmaString) {
         Lemma lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
-            if (lemma != null) {
-                lemma.setFrequency(lemma.getFrequency() + 1);
-            } else {
-                lemma = new Lemma(site, lemmaString);
-            }
+        if (lemma != null) {
+            lemma.setFrequency(lemma.getFrequency() + 1);
+        } else {
+            lemma = new Lemma(site, lemmaString);
+        }
         lemmaRepository.save(lemma);
         return lemma;
     }
 
     private void processFoundLinks() {
-        for (int i = 0; i < foundLinks.size(); i += THRESHOLD) {
-            int end = Math.min(foundLinks.size(), i + THRESHOLD);
-            List<String> subList = foundLinks.subList(i, end);
+        List<String> linksToProcess = new ArrayList<>(foundLinks);
+        for (int i = 0; i < linksToProcess.size(); i += THRESHOLD) {
+            if (stop.get()) break;
+            int end = Math.min(linksToProcess.size(), i + THRESHOLD);
+            List<String> subList = linksToProcess.subList(i, end);
             WebParser task = new WebParser(initSiteList, pageRepository, lemmaRepository, indexRepository,
                     config, lemmatisator, subList);
             task.setSite(site);
             task.fork();
             amount += task.join();
         }
-        foundLinks.clear();
     }
 
     @SneakyThrows
@@ -214,6 +214,10 @@ public class WebParser extends RecursiveTask<Integer> {
 
     public static void stopCrawling() {
         stop.set(true);
+    }
+
+    public static void startCrawling() {
+        stop.set(false);
     }
 
     public static void clearVisitedLinks() {

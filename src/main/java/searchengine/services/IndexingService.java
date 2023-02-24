@@ -36,8 +36,6 @@ public class IndexingService {
     private final InitSiteList initSiteList;
     private final Config config;
     private static AtomicBoolean indexing = new AtomicBoolean(false);
-    private List<ForkJoinPool> forkJoinPoolList;
-    private List<Thread> threadList;
     private final Lemmatisator lemmatisator;
 
     @Autowired
@@ -66,6 +64,7 @@ public class IndexingService {
     public Response startIndexing() {
         if (indexing.compareAndSet(false, true)) {
             clearData();
+            WebParser.startCrawling();
             new Thread(this::indexing).start();
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
         } else {
@@ -75,11 +74,8 @@ public class IndexingService {
     }
 
     public void indexing() {
-        threadList = new ArrayList<>();
-        forkJoinPoolList = new ArrayList<>();
         List<WebParser> webParserList = createWebParsers(initSiteList.getSites());
-        webParserList.forEach(webParser -> threadList.add(new Thread(() -> indexingThreadProcess(webParser))));
-        threadList.forEach(Thread::start);
+        webParserList.forEach(webParser -> new Thread(() -> indexingThreadProcess(webParser)).start());
     }
 
     private void indexingThreadProcess(WebParser webParser) {
@@ -87,11 +83,10 @@ public class IndexingService {
         try {
             saveSiteStatus(site, StatusType.INDEXING);
             ForkJoinPool forkJoinPool = new ForkJoinPool();
-            forkJoinPoolList.add(forkJoinPool);
             forkJoinPool.execute(webParser);
             int count = webParser.join();
             logger.info(webParser.getSite().getName() + ": " + count + " pages processed.");
-            saveSiteStatus(site, StatusType.INDEXED);
+            if (!site.getStatus().equals(StatusType.FAILED)) saveSiteStatus(site, StatusType.INDEXED);
         } catch (CancellationException e) {
             e.printStackTrace();
             site.setLastError("Ошибка индексации: " + e.getMessage());
@@ -104,16 +99,12 @@ public class IndexingService {
         if (indexing.compareAndSet(true, false)) {
             CompletableFuture.runAsync(() -> {
                 WebParser.stopCrawling();
-                forkJoinPoolList.forEach(ForkJoinPool::shutdownNow);
-                threadList.forEach(Thread::interrupt);
                 siteRepository.findAll().forEach(site -> {
-                    if (site.getStatus().equals(StatusType.INDEXING) || site.getStatus().equals(StatusType.FAILED)) {
+                    if (site.getStatus().equals(StatusType.INDEXING)) {
                         site.setLastError("Индексация прервана пользователем");
                         saveSiteStatus(site, StatusType.FAILED);
                     }
                 });
-                threadList.clear();
-                forkJoinPoolList.clear();
             });
             return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
         } else {
