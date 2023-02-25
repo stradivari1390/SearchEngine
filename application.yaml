@@ -1,15 +1,13 @@
 indexing-settings:
   sites:
-#    - url: https://lenta.ru/
-#      name: Лента.ру
+    - url: https://lenta.ru/
+      name: Лента.ру
     - url: https://skillbox.ru/
       name: Skillbox
-#    - url: https://playback.ru/
-#      name: PlayBack.Ru
+    - url: https://playback.ru/
+      name: PlayBack.Ru
     - url: https://dombulgakova.ru/
       name: Дом Булгакова
-
-  batchsize: 1000
 
 config:
   userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36
@@ -52,15 +50,15 @@ spring:
           order_inserts: true
           order_deletes: true
           order_updates: true
-        generate_statistics: true
+        generate_statistics: false
     show-sql: true
     open-in-view: false
-  session:
-    factory_class: org.hibernate.boot.spi.SessionFactoryOptions
+#  session:
+#    factory_class: org.hibernate.boot.spi.SessionFactoryOptions
 
 logging:
   level:
-    org.springframework.web.servlet.DispatcherServlet: trace
-    request-details: trace
+    org.springframework.web.servlet.DispatcherServlet: info
+    request-details: info
   config:
     classpath: log4j2.xml

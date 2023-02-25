@@ -1,10 +1,8 @@
 package searchengine.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.configurationprocessor.json.JSONException;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+
 import searchengine.dto.responses.Response;
 import searchengine.dto.search.Search;
 import searchengine.dto.responses.ErrorResponse;
@@ -38,17 +36,15 @@ public class SearchingService {
         this.lemmatisator = lemmatisator;
     }
 
-    public Response search(String query, String siteUrl, int offset, int limit) throws JSONException {
+    public Response search(String query, String siteUrl, int offset, int limit) {
         if (query == null || query.isEmpty()) {
-            return new ErrorResponse(new JSONObject().put("result", "Задан пустой поисковый запрос"),
-                    HttpStatus.BAD_REQUEST);
+            return new ErrorResponse(false, "Задан пустой поисковый запрос");
         }
         Site site = null;
         if (siteUrl != null) {
             site = siteRepository.findSiteByUrl(siteUrl);
             if (site == null) {
-                return new ErrorResponse(new JSONObject().put("result", "Указанная страница не найдена"),
-                        HttpStatus.NOT_FOUND);
+                return new ErrorResponse(false, "Указанная страница не найдена");
             }
         }
         SearchEngine searchEngine = new SearchEngine(siteRepository, pageRepository,
@@ -56,8 +52,7 @@ public class SearchingService {
         Search search = searchEngine.search(query, site);
 
         if (search.getCount() < offset) {
-            return new ErrorResponse(new JSONObject().put("result", "Некорректное значение смещения"),
-                    HttpStatus.BAD_REQUEST);
+            return new ErrorResponse(false, "Некорректное значение смещения");
         }
         if (search.getCount() > limit) {
             search.setSearchResultSet(getLimitSearchResultSet(search, limit));

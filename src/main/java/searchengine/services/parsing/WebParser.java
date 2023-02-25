@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
 import searchengine.exceptions.WebParserException;
@@ -75,6 +76,7 @@ public class WebParser extends RecursiveTask<Integer> {
     @SneakyThrows
     @Override
     public Integer compute() {
+        List<Page> pagesToSave = new ArrayList<>();
         for (String link : toParseLinkList) {
             if (stop.get()) break;
             String cleanLink = cleanUrl(link);
@@ -86,37 +88,53 @@ public class WebParser extends RecursiveTask<Integer> {
             }
             Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
             Page page = new Page(site, cleanLink, htmlData.getValue(), htmlData.getKey());
-            pageRepository.save(page);
-            saveLemmasAndIndices(page);
+            pagesToSave.add(page);
             amount++;
         }
+        saveLemmasAndIndices(pagesToSave);
         if (!foundLinks.isEmpty()) {
             processFoundLinks();
         }
         return amount;
     }
 
-    private void saveLemmasAndIndices(Page page) {
-        Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
-        for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
-            if (stop.get()) break;
-            String lemmaString = entry.getKey();
-            int rank = entry.getValue();
-            Lemma lemma = updateOrCreateLemma(lemmaString);
-            Index index = new Index(lemma, page, rank);
-            indexRepository.save(index);
+    @Transactional
+    protected void saveLemmasAndIndices(List<Page> pagesToSave) {
+        Map<String, Lemma> uniqueLemmas = new HashMap<>();
+        List<Index> indicesToSave = new ArrayList<>();
+        for (Page page : pagesToSave) {
+            Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
+            for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
+                if (stop.get()) break;
+                String lemmaString = entry.getKey();
+                int rank = entry.getValue();
+                Lemma lemma = uniqueLemmas.get(lemmaString);
+                synchronized (lock) {
+                    if (lemma == null) {
+                        lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
+                        if (lemma != null) {
+                            lemma.setFrequency(lemma.getFrequency() + 1);
+                        } else {
+                            lemma = new Lemma(site, lemmaString);
+                        }
+                        uniqueLemmas.put(lemmaString, lemma);
+                    } else {
+                        Lemma lemmaFromRepo = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
+                        if (lemmaFromRepo != null) {
+                            lemmaFromRepo.setFrequency(lemma.getFrequency() + lemmaFromRepo.getFrequency());
+                            lemma = lemmaFromRepo;
+                        } else lemma.setFrequency(lemma.getFrequency() + 1);
+                    }
+                }
+                Index index = new Index(lemma, page, rank);
+                indicesToSave.add(index);
+            }
         }
-    }
-
-    private synchronized Lemma updateOrCreateLemma(String lemmaString) {
-        Lemma lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
-        if (lemma != null) {
-            lemma.setFrequency(lemma.getFrequency() + 1);
-        } else {
-            lemma = new Lemma(site, lemmaString);
+        pageRepository.saveAll(pagesToSave);
+        synchronized (lock) {
+            lemmaRepository.saveAll(uniqueLemmas.values());
         }
-        lemmaRepository.save(lemma);
-        return lemma;
+        indexRepository.saveAll(indicesToSave);
     }
 
     private void processFoundLinks() {

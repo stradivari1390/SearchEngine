@@ -1,19 +1,23 @@
 package searchengine.dto.responses;
 
 import lombok.AllArgsConstructor;
+import lombok.SneakyThrows;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 
 @AllArgsConstructor
 public class ErrorResponse implements Response {
-    private JSONObject response;
-    private HttpStatus httpStatus;
+    private boolean result;
+    private String error;
+
+    @SneakyThrows
     @Override
     public JSONObject get() {
-        return response;
+        return new JSONObject().put("result", result).put("error", error);
     }
+
     @Override
     public HttpStatus getHttpStatus() {
-        return httpStatus;
+        return HttpStatus.BAD_REQUEST;
     }
 }

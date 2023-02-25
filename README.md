@@ -48,7 +48,7 @@ Run the following command to start the application:
 ## Configuration
 The application can be configured by modifying the application.yaml file. Here are the important configuration options:
 
-**indexing-settings:** This section contains a list of sites to index. Each site must have a URL and a name.
+**indexing-settings:** This section contains a list of sites to index. Each site must have a URL without "www" and a name.
 
 **batchsize:** The number of items to process in a batch.
 

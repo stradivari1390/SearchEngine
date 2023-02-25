@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import searchengine.dto.statistics.DetailedStatisticsItem;
-import searchengine.model.StatusType;
+import searchengine.dto.statistics.Statistics;
 import searchengine.dto.responses.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.model.Site;
@@ -46,17 +46,8 @@ public class StatisticsService {
             total.setSites(total.getSites() + 1);
             total.setPages(total.getPages() + pages);
             total.setLemmas(total.getLemmas() + lemmas);
-
-            if (site.getStatus().equals(StatusType.INDEXING)) {
-                total.setIndexing(true);
-            }
+            total.setIndexing(IndexingService.isIndexing());
         }
-
-        return new StatisticsResponse(
-                total.getSites(),
-                total.getPages(),
-                total.getLemmas(),
-                detailed
-        );
+        return new StatisticsResponse(true, new Statistics(total, detailed));
     }
 }

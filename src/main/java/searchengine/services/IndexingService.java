@@ -6,12 +6,12 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
+import searchengine.dto.responses.ErrorResponse;
 import searchengine.services.parsing.Lemmatisator;
 import searchengine.model.*;
 import searchengine.repository.*;
@@ -22,12 +22,12 @@ import searchengine.dto.responses.Response;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class IndexingService {
     Logger logger = LogManager.getLogger(IndexingService.class);
-    private static final String RESULT = "result";
-    private static final String ERROR = "error";
     private static final String HTTP_S_WWW = "^(https?://)?(www\\.)?";
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
@@ -52,7 +52,8 @@ public class IndexingService {
         WebParser.initiateValidationPatterns(initSiteList);
     }
 
-    private void clearData() {
+    @Transactional
+    protected void clearData() {
         indexRepository.deleteAll();
         lemmaRepository.deleteAll();
         pageRepository.deleteAll();
@@ -66,10 +67,9 @@ public class IndexingService {
             clearData();
             WebParser.startCrawling();
             new Thread(this::indexing).start();
-            return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
+            return new IndexResponse(true);
         } else {
-            return new IndexResponse(new JSONObject().put(RESULT, false)
-                    .put(ERROR, "Индексация уже запущена"), HttpStatus.BAD_REQUEST);
+            return new ErrorResponse(false, "Индексация уже запущена");
         }
     }
 
@@ -98,34 +98,38 @@ public class IndexingService {
     public Response stopIndexing() {
         if (indexing.compareAndSet(true, false)) {
             CompletableFuture.runAsync(() -> {
-                WebParser.stopCrawling();
                 siteRepository.findAll().forEach(site -> {
                     if (site.getStatus().equals(StatusType.INDEXING)) {
                         site.setLastError("Индексация прервана пользователем");
                         saveSiteStatus(site, StatusType.FAILED);
                     }
                 });
+                WebParser.stopCrawling();
             });
-            return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
+            return new IndexResponse(true);
         } else {
-            return new IndexResponse(new JSONObject().put(RESULT, false)
-                    .put(ERROR, "Индексация не запущена"), HttpStatus.BAD_REQUEST);
+            return new ErrorResponse(false, "Индексация не запущена");
         }
     }
 
     @SneakyThrows
     public Response indexPage(String url) {
         if (!WebParser.isValidLink(url)) {
-            return new IndexResponse(new JSONObject()
-                    .put("Данная страница находится за пределами сайтов, " +
-                            "указанных в конфигурационном файле", false), HttpStatus.BAD_REQUEST);
+            return new ErrorResponse(false, "Данная страница находится за пределами сайтов, " +
+                            "указанных в конфигурационном файле");
         }
-        Site site = siteRepository.findSiteByUrl(url);
-        if (site == null) site = createNewSite(url);
+        Site site;
+        Pattern pattern = Pattern.compile("^(?:https?:\\/\\/)?(?:www\\.)?([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})(?:$|\\/)");
+        Matcher matcher = pattern.matcher(url);
+        if (matcher.find()) {
+            String domainName = matcher.group(1);
+            site = siteRepository.findSiteByUrl(domainName.replace("/www\\.", "/"));
+        } else {
+            site = createNewSite(url);
+        }
         assert site != null;
         if (site.getStatus() == StatusType.INDEXING) {
-            return new IndexResponse(new JSONObject()
-                    .put(ERROR, "Индексация уже запущена"), HttpStatus.BAD_REQUEST);
+            return new ErrorResponse(false, "Индексация уже запущена");
         }
         saveSiteStatus(site, StatusType.INDEXING);
         WebParser webParser = newWebParse(site);
@@ -141,7 +145,7 @@ public class IndexingService {
             indexRepository.save(index);
         }
         saveSiteStatus(site, StatusType.INDEXED);
-        return new IndexResponse(new JSONObject().put(RESULT, true), HttpStatus.OK);
+        return new IndexResponse( true);
     }
 
     private Site createNewSite(String url) {
