@@ -122,8 +122,8 @@ public class IndexingService {
         Pattern pattern = Pattern.compile("^(?:https?:\\/\\/)?(?:www\\.)?([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})(?:$|\\/)");
         Matcher matcher = pattern.matcher(url);
         if (matcher.find()) {
-            String domainName = matcher.group(1);
-            site = siteRepository.findSiteByUrl(domainName.replace("/www\\.", "/"));
+            String domainName = matcher.group();
+            site = siteRepository.findSiteByUrl(domainName.replaceAll("/www\\.", "/"));
         } else {
             site = createNewSite(url);
         }
