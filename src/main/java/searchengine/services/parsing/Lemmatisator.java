@@ -77,7 +77,7 @@ public class Lemmatisator {
         HashMap<String, Integer> lemmas = new HashMap<>();
 
         for (String word : words) {
-            if (word.isBlank() || word.length() < 3 ||
+            if (word.isBlank() || word.length() < 3 || word.length() > 45 ||
                     checkLanguage(word).equals("Rus") && !isCorrectRussianWord(word) ||
                     checkLanguage(word).equals("Eng") && !isCorrectEnglishWord(word) ||
                     checkLanguage(word).equals("Unidentified")) {

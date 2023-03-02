@@ -23,7 +23,7 @@ spring:
     view:
       suffix: .html
     log-request-details: true
-  #  jackson:
+#  jackson:
 #    serialization:
 #      fail-on-empty-beans: false
   datasource:

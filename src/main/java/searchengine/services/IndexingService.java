@@ -86,7 +86,7 @@ public class IndexingService {
             forkJoinPool.execute(webParser);
             int count = webParser.join();
             logger.info(webParser.getSite().getName() + ": " + count + " pages processed.");
-            if (!site.getStatus().equals(StatusType.FAILED)) saveSiteStatus(site, StatusType.INDEXED);
+            if (!WebParser.stopped()) saveSiteStatus(site, StatusType.INDEXED);
         } catch (CancellationException e) {
             e.printStackTrace();
             site.setLastError("Ошибка индексации: " + e.getMessage());
@@ -97,15 +97,13 @@ public class IndexingService {
     @SneakyThrows
     public Response stopIndexing() {
         if (indexing.compareAndSet(true, false)) {
-            CompletableFuture.runAsync(() -> {
-                siteRepository.findAll().forEach(site -> {
-                    if (site.getStatus().equals(StatusType.INDEXING)) {
-                        site.setLastError("Индексация прервана пользователем");
-                        saveSiteStatus(site, StatusType.FAILED);
-                    }
-                });
-                WebParser.stopCrawling();
+            siteRepository.findAll().forEach(site -> {
+                if (site.getStatus().equals(StatusType.INDEXING)) {
+                    site.setLastError("Индексация прервана пользователем");
+                    saveSiteStatus(site, StatusType.FAILED);
+                }
             });
+            WebParser.stopCrawling();
             return new IndexResponse(true);
         } else {
             return new ErrorResponse(false, "Индексация не запущена");
@@ -116,7 +114,7 @@ public class IndexingService {
     public Response indexPage(String url) {
         if (!WebParser.isValidLink(url)) {
             return new ErrorResponse(false, "Данная страница находится за пределами сайтов, " +
-                            "указанных в конфигурационном файле");
+                    "указанных в конфигурационном файле");
         }
         Site site;
         Pattern pattern = Pattern.compile("^(?:https?:\\/\\/)?(?:www\\.)?([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})(?:$|\\/)");
@@ -145,7 +143,7 @@ public class IndexingService {
             indexRepository.save(index);
         }
         saveSiteStatus(site, StatusType.INDEXED);
-        return new IndexResponse( true);
+        return new IndexResponse(true);
     }
 
     private Site createNewSite(String url) {

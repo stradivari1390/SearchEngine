@@ -238,6 +238,10 @@ public class WebParser extends RecursiveTask<Integer> {
         stop.set(false);
     }
 
+    public static boolean stopped() {
+        return stop.get();
+    }
+
     public static void clearVisitedLinks() {
         visitedLinks.clear();
     }
