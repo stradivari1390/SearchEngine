@@ -19,14 +19,11 @@ server:
 spring:
 #  aop:
 #    proxy-target-class: false
-  thymeleaf:
-    prefix: classpath:/templates/
-  http:
-    log-request-details: true
   mvc:
     view:
       suffix: .html
-#  jackson:
+    log-request-details: true
+  #  jackson:
 #    serialization:
 #      fail-on-empty-beans: false
   datasource:
@@ -55,6 +52,17 @@ spring:
     open-in-view: false
 #  session:
 #    factory_class: org.hibernate.boot.spi.SessionFactoryOptions
+  web:
+    locale: ru
+    locale-resolver: fixed
+    resources:
+      static-locations:
+        classpath: /templates/
+  thymeleaf:
+      prefix:
+        classpath: /templates/
+  messages:
+      basename: lang.messages
 
 logging:
   level:

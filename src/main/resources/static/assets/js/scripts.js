@@ -1510,7 +1510,7 @@ var API = function(){
                     if ($this.next('.API-success').length) {
                         $this.next('.API-success').text('Страница добавлена/обновлена успешно');
                     } else {
-                        $this.after('<div class="API-success">Страница поставлена в очередь на обновление / добавление</div>');
+                        $this.after('<div class="API-success">Страница добавлена/обновлена успешно</div>');
                     }
                 } else {
                     if ($this.next('.API-success').length) {

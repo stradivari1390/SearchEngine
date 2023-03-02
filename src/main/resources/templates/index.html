@@ -9,9 +9,9 @@
 <!--[if IE 9]>
 <html class="ie9" lang="ru">
 <![endif]-->
-<!--[if gt IE 9]><!--> <html lang="ru"> <!--<![endif]-->
+<!--[if gt IE 9]><!--> <html lang="ru" xmlns:th="http://www.thymeleaf.org"> <!--<![endif]-->
 <head>
-  <title>Site Search Engine</title>
+  <title th:text="#{menu.title}">Site Search Engine</title>
   <meta name="description" content="Site Search Engine">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
@@ -29,7 +29,7 @@
   <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
 
   <script>
-     var backendApiUrl = 'api'
+     var backendApiUrl = 'http://localhost:8080/api'
   </script>
   
   <script defer src="/assets/js/scripts.js?v=38874865"></script>
@@ -62,29 +62,49 @@
       <div class="Site-loadingIsComplete">
         <main class="Tabs Tabs_column Middle-main">
           <div class="Column">
-            <div class="Tabs-links"><a class="Tabs-link Tabs-link_ACTIVE" href="#dashboard"><img class="Tabs-icon" src="/assets/img/icons/dashboard.svg" alt="dashboard.svg"/><span class="Tabs-linkText">Dashboard</span></a><a class="Tabs-link" href="#management"><img class="Tabs-icon" src="/assets/img/icons/management.svg" alt="management.svg"/><span class="Tabs-linkText">Management</span></a><a class="Tabs-link" href="#search"><img class="Tabs-icon" src="/assets/img/icons/search.svg" alt="search.svg"/><span class="Tabs-linkText">Search</span></a>
+            <div class="Tabs-links">
+              <a class="Tabs-link Tabs-link_ACTIVE" href="#dashboard">
+                <img class="Tabs-icon" src="/assets/img/icons/dashboard.svg" alt="dashboard.svg"/>
+                <span class="Tabs-linkText" th:text="#{menu.dashboard}">Dashboard</span>
+              </a>
+              <a class="Tabs-link" href="#management">
+                <img class="Tabs-icon" src="/assets/img/icons/management.svg" alt="management.svg"/>
+                <span class="Tabs-linkText" th:text="#{menu.management}">Management</span>
+              </a>
+              <a class="Tabs-link" href="#search">
+                <img class="Tabs-icon" src="/assets/img/icons/search.svg" alt="search.svg"/>
+                <span class="Tabs-linkText" th:text="#{menu.search}">Search</span>
+              </a>
+              <p>
+                <span th:text="#{footer.languageSelection}"></span>
+                <select id="locales" onchange="location.href=this.value;">
+                  <option th:value="'?lang=' + ${#locale.toString()}" th:text="#{footer.currentLanguage}"></option>
+                  <option th:if="${#locale.toString() != 'en'}" th:value="'?lang=en'" th:text="#{footer.englishLanguage}"></option>
+                  <option th:if="${#locale.toString() != 'ru'}" th:value="'?lang=ru'" th:text="#{footer.russianLanguage}"></option>
+                </select>
+              </p>
             </div>
           </div>
           <div class="Tabs-wrap">
             <div class="Tabs-block" id="dashboard">
               <div class="Section">
                 <div class="Section-header">
-                  <h2 class="Section-title">Dashboard
+                  <h2 class="Section-title" th:text="#{menu.dashboard}">Dashboard
                   </h2>
                 </div>
                 <div class="Statistics">
                   <div class="Statistics-info">
                     <div class="Statistics-block">
                       <span class="Statistics-amount" id="totalSites"></span>
-                      <span class="Statistics-title">sites</span>
+                      <span class="Statistics-title" th:text="#{menu.sites}">sites</span>
                     </div>
                     <div class="Statistics-block">
                       <span class="Statistics-amount" id="totalPages"></span>
-                      <span class="Statistics-title">pages</span>
+                      <span class="Statistics-title" th:text="#{menu.pages}">pages</span>
                     </div>
                     <div class="Statistics-block">
                       <span class="Statistics-amount" id="totalLemmas"></span>
-                      <span class="Statistics-title">lemmas</span>
+                      <span class="Statistics-title" th:text="#{menu.lemmas}">lemmas</span>
                     </div>
                   </div>
                   <div class="HideBlock Statistics-example">
@@ -102,20 +122,21 @@
             <div class="Tabs-block" id="management">
               <div class="Section">
                 <div class="Section-header">
-                  <h2 class="Section-title">Management
+                  <h2 class="Section-title" th:text="#{menu.management}">Management
                   </h2>
                 </div>
                 <div>
-                  <button class="btn btn_primary API-startIndexing" data-btntype="check" data-check="false" data-alttext="Stop indexing" data-send="startIndexing" data-altsend="stopIndexing"><span class="btn-content">Start indexing</span>
+                  <button class="btn btn_primary API-startIndexing" data-btntype="check" data-check="false" th:data-alttext="#{menu.stop_indexing}" data-send="startIndexing" data-altsend="stopIndexing">
+                    <span class="btn-content" th:text="#{menu.start_indexing}">Start indexing</span>
                   </button>
                 </div><br>
                 <div class="UpdatePageBlock">
-                  <h3>Add/update page:
+                  <h3  th:text="#{menu.add_update_page}">Add/update page:
                   </h3>
                   <form class="form form_close" action="#" method="post" data-send="indexPage">
                     <div class="form-group form-group_row">
                       <input class="form-input" id="page" name="page" type="text"/>
-                      <button class="btn btn_primary form-btn" type="submit">Add/update
+                      <button class="btn btn_primary form-btn" type="submit" th:text="#{menu.add_update}">Add/update
                       </button>
                     </div>
                   </form>
@@ -125,7 +146,7 @@
             <div class="Tabs-block" id="search">
               <div class="Section">
                 <div class="Section-header">
-                  <h2 class="Section-title">Search
+                  <h2 class="Section-title" th:text="#{menu.search}">Search
                   </h2>
                 </div>
                 <form class="form form_close" action="#" method="post" data-send="search" data-sendlimit="10">
@@ -139,18 +160,20 @@
                     </div>
                   </div>
                   <div class="form-group form-group_row">
-                    <input class="form-input" id="query" name="query" type="text" placeholder="Query"/>
-                    <button class="btn btn_primary form-btn" type="submit">Search
+                    <input class="form-input" id="query" name="query" type="text" th:placeholder="#{menu.query}"/>
+                    <button class="btn btn_primary form-btn" type="submit" th:text="#{menu.search}">Search
                     </button>
                   </div>
                 </form>
                 <div class="SearchResult">
-                  <strong class="SearchResult-title">Found&#32;<span class="SearchResult-amount">0</span>&#32;results
+                  <strong class="SearchResult-title" th:text="#{menu.found}">Found&#32;
+                    <span class="SearchResult-amount">0</span>&#32;results
                   </strong>
                   <div class="SearchResult-content">
                   </div>
                   <div class="SearchResult-footer SearchResult-footer_hide">
-                    <button class="btn btn_primary" data-send="search" data-sendtype="next">Show more<span class="SearchResult-remain">(0)</span>
+                    <button class="btn btn_primary" data-send="search" data-sendtype="next" th:text="#{menu.show_more}">Show more
+                      <span class="SearchResult-remain">(0)</span>
                     </button>
                   </div>
                 </div>
@@ -162,4 +185,5 @@
     </div>
   </div>
   <script src="/assets/plg/jQuery/jquery-3.5.1.min.js"></script>
-</body></html>
+</body>
+</html>
