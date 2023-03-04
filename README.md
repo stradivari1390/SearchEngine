@@ -48,7 +48,11 @@ Run the following command to start the application:
 ## Configuration
 The application can be configured by modifying the application.yaml file. Here are the important configuration options:
 
-**indexing-settings:** This section contains a list of sites to index. Each site must have a URL without "www" and a name.
+**indexing-settings:** This section contains a list of sites to index. Each site must have a URL (without "www") and a name.
+
+**sql.init.mode** Set "never", if you don't want to create schema manually, turn to always before first run.
+
+__Additionally you can use docker image of postgres. **Instructions are below.**__
 
 **batchsize:** The number of items to process in a batch.
 
@@ -65,6 +69,45 @@ You will need to configure the database connection details in the application.ya
 * url
 * username
 * password
+
+## Docker postgres
+To raise a PostgreSQL database through Docker, you can follow these steps:
+
+- Make sure that Docker is installed on your system. You can download and install Docker from the official website: https://www.docker.com/get-started
+
+- Pull the PostgreSQL Docker image from the Docker Hub repository by running the following command in your terminal or command prompt:
+```
+docker pull postgres
+```
+- Once the image is downloaded, you can create a new container by running the following command:
+```
+docker run --name my-postgres -e POSTGRES_PASSWORD=mysecretpassword -d -p 5432:5432 search_engine
+```
+This command creates a new container named "my-postgres" using the PostgreSQL image, sets the password for the default "postgres" user to "mysecretpassword", and maps the container's port 5432 to the host system's port 5432. You can change the container name and the password to your liking.
+- After running the command, you can check the status of your container by running:
+```
+docker ps
+```
+This command will list all the running containers on your system. You should see the "my-postgres" container listed.
+- Finally, you can connect to the PostgreSQL database from your IDE or command line tool using the following connection details:
+```
+Host: localhost
+Port: 5432
+Database: search_engine
+User: postgres
+Password: mysecretpassword
+```
+### If you have Docker plugin
+in IDE (IntelliJ IDEA for example), you can follow these steps:
+
+- Open project in IntelliJ IDEA and make sure the Docker plugin is installed and enabled. You can check this by going to Settings/Preferences > Plugins and searching for "Docker" (you can find it there and install if it's not). Make sure that Docker is installed on your system as well.
+- Add Run configuration and choose docker there.
+- In the Add Docker Configuration dialog, select Docker Compose as the configuration type.
+- In the Compose file field, specify the path to your docker-compose.yml file. This file should contain the configuration for your PostgreSQL database, such as the version, port number, and environment variables. There is docker-compose.yml in my project, in resources package. You should change password (image version, username if needed).
+- Click on the Run button to start the Docker container and raise the PostgreSQL database. You should see the logs in the Docker tool window in service tab below.
+- Once the container is running, you can also connect to the PostgreSQL database using a database client such as pgAdmin or DataGrip as well. You can find the hostname, port number, username, and password in the docker-compose.yml file.
+
+That's it! You should now have a running PostgreSQL database in Docker that you can use for testing local search engine.
 
 ## Endpoints
 ### Indexing Controller
