@@ -1696,7 +1696,7 @@
                             var scroll = $(window).scrollTop();
                             result.data.forEach(function (page) {
                                 $content.append('<div class="SearchResult-block">' +
-                                    '<a href="' + page.siteUrl + page.uri + '" target="_blank" class="SearchResult-siteTitle">' +
+                                    '<a href="' + (page.uri.startsWith("http") ? '' : page.siteUrl) + page.uri + '" target="_blank" class="SearchResult-siteTitle">' +
                                     (!data.siteName ? page.siteName + ' - ' : '') +
                                     page.title +
                                     '</a>' +

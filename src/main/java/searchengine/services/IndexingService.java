@@ -68,9 +68,7 @@ public class IndexingService {
             WebParser.startCrawling();
             new Thread(this::indexing).start();
             return new IndexResponse(true);
-        } else {
-            return new ErrorResponse(false, "Индексация уже запущена");
-        }
+        } else return new ErrorResponse(false, "Индексация уже запущена");
     }
 
     public void indexing() {
@@ -148,7 +146,8 @@ public class IndexingService {
 
     private Site createNewSite(String url) {
         for (searchengine.config.Site initSite : initSiteList.getSites()) {
-            if (url.replaceAll(HTTP_S_WWW, "").contains(initSite.getUrl().replaceAll(HTTP_S_WWW, ""))) {
+            if (url.replaceAll(HTTP_S_WWW, "")
+                    .contains(initSite.getUrl().replaceAll(HTTP_S_WWW, ""))) {
                 Site site = new Site(initSite.getUrl(), initSite.getName());
                 saveSiteStatus(site, StatusType.FAILED);
                 return site;
@@ -181,9 +180,7 @@ public class IndexingService {
         List<WebParser> webParserList = new ArrayList<>();
         for (searchengine.config.Site initSite : initSites) {
             Site site = siteRepository.findSiteByUrl(initSite.getUrl());
-            if (site == null) {
-                site = new Site(initSite.getUrl(), initSite.getName());
-            }
+            if (site == null) site = new Site(initSite.getUrl(), initSite.getName());
             webParserList.add(newWebParse(site));
         }
         return webParserList;

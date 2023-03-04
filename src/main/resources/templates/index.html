@@ -75,14 +75,21 @@
                 <img class="Tabs-icon" src="/assets/img/icons/search.svg" alt="search.svg"/>
                 <span class="Tabs-linkText" th:text="#{menu.search}">Search</span>
               </a>
-              <p>
-                <span th:text="#{footer.languageSelection}"></span>
+              <div class="dropdown">
+                <button class="btn dropdown-toggle" type="button" id="dropdownMenuButton"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  <img class="Tabs-icon" src="/assets/img/icons/language.svg" alt="language.svg"/>
+                  <span class="dropdown-toggle-text" th:text="#{footer.languageSelection}">Language</span>
+                </button>
                 <select id="locales" onchange="location.href=this.value;">
-                  <option th:value="'?lang=' + ${#locale.toString()}" th:text="#{footer.currentLanguage}"></option>
-                  <option th:if="${#locale.toString() != 'en'}" th:value="'?lang=en'" th:text="#{footer.englishLanguage}"></option>
-                  <option th:if="${#locale.toString() != 'ru'}" th:value="'?lang=ru'" th:text="#{footer.russianLanguage}"></option>
+                  <option th:value="'?lang=en'"
+                          th:selected="${#locale.toString() == 'en'}"
+                          th:text="#{footer.englishLanguage}"></option>
+                  <option th:value="'?lang=ru'"
+                          th:selected="${#locale.toString() == 'ru'}"
+                          th:text="#{footer.russianLanguage}"></option>
                 </select>
-              </p>
+              </div>
             </div>
           </div>
           <div class="Tabs-wrap">
@@ -154,7 +161,7 @@
                     <div class="form-selectWrap">
                       <!-- - var options = setOptions(items, ['value', 'selected', 'disabled']);-->
                       <select class="form-select" name="site">
-                        <option value="" selected="selected">All sites
+                        <option value="" selected="selected" th:text="#{menu.all_sites}">All sites
                         </option>
                       </select>
                     </div>
@@ -167,7 +174,7 @@
                 </form>
                 <div class="SearchResult">
                   <strong class="SearchResult-title" th:text="#{menu.found}">Found&#32;
-                    <span class="SearchResult-amount">0</span>&#32;results
+                    <span class="SearchResult-amount">0</span>result&#32;
                   </strong>
                   <div class="SearchResult-content">
                   </div>

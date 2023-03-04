@@ -26,6 +26,10 @@ spring:
 #  jackson:
 #    serialization:
 #      fail-on-empty-beans: false
+  sql:
+    init:
+      mode: never
+      schema-locations: classpath:schema-postgresql.sql
   datasource:
     driverClassName: org.postgresql.Driver
     url: jdbc:postgresql://localhost:5432/search_engine?currentSchema=search_engine
@@ -41,13 +45,14 @@ spring:
       - class: searchengine.model.Index
     properties:
       hibernate:
+        default_schema: search_engine
         dialect: org.hibernate.dialect.PostgreSQL95Dialect
         jdbc:
           batch_size: 1000
           order_inserts: true
           order_deletes: true
           order_updates: true
-        generate_statistics: false
+          generate_statistics: false
     show-sql: true
     open-in-view: false
 #  session:

@@ -81,9 +81,7 @@ public class WebParser extends RecursiveTask<Integer> {
             if (stop.get()) break;
             String cleanLink = cleanUrl(link);
             synchronized (lock) {
-                if (visitedLinks.contains(cleanLink)) {
-                    continue;
-                }
+                if (visitedLinks.contains(cleanLink)) continue;
                 visitedLinks.add(cleanLink);
             }
             Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
@@ -92,9 +90,7 @@ public class WebParser extends RecursiveTask<Integer> {
             amount++;
         }
         saveLemmasAndIndices(pagesToSave);
-        if (!foundLinks.isEmpty()) {
-            processFoundLinks();
-        }
+        if (!foundLinks.isEmpty()) processFoundLinks();
         return amount;
     }
 
@@ -106,26 +102,8 @@ public class WebParser extends RecursiveTask<Integer> {
             Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
             for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
                 if (stop.get()) break;
-                String lemmaString = entry.getKey();
                 int rank = entry.getValue();
-                Lemma lemma = uniqueLemmas.get(lemmaString);
-                synchronized (lock) {
-                    if (lemma == null) {
-                        lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
-                        if (lemma != null) {
-                            lemma.setFrequency(lemma.getFrequency() + 1);
-                        } else {
-                            lemma = new Lemma(site, lemmaString);
-                        }
-                        uniqueLemmas.put(lemmaString, lemma);
-                    } else {
-                        Lemma lemmaFromRepo = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
-                        if (lemmaFromRepo != null) {
-                            lemmaFromRepo.setFrequency(lemma.getFrequency() + lemmaFromRepo.getFrequency());
-                            lemma = lemmaFromRepo;
-                        } else lemma.setFrequency(lemma.getFrequency() + 1);
-                    }
-                }
+                Lemma lemma = addOrUpdateLemma(uniqueLemmas, entry.getKey());
                 Index index = new Index(lemma, page, rank);
                 indicesToSave.add(index);
             }
@@ -135,6 +113,25 @@ public class WebParser extends RecursiveTask<Integer> {
             lemmaRepository.saveAll(uniqueLemmas.values());
         }
         indexRepository.saveAll(indicesToSave);
+    }
+
+    private Lemma addOrUpdateLemma(Map<String, Lemma> uniqueLemmas, String lemmaString) {
+        Lemma lemma = uniqueLemmas.get(lemmaString);
+        synchronized (lock) {
+            if (lemma == null) {
+                lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
+                if (lemma != null) lemma.setFrequency(lemma.getFrequency() + 1);
+                else lemma = new Lemma(site, lemmaString);
+                uniqueLemmas.put(lemmaString, lemma);
+            } else {
+                Lemma lemmaFromRepo = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
+                if (lemmaFromRepo != null) {
+                    lemmaFromRepo.setFrequency(lemma.getFrequency() + lemmaFromRepo.getFrequency());
+                    lemma = lemmaFromRepo;
+                } else lemma.setFrequency(lemma.getFrequency() + 1);
+            }
+        }
+        return lemma;
     }
 
     private void processFoundLinks() {
