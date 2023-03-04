@@ -52,7 +52,7 @@ The application can be configured by modifying the application.yaml file. Here a
 
 **sql.init.mode** Set "never", if you don't want to create schema manually, turn to always before first run.
 
-__Additionally you can use docker image of postgres. **Instructions are below.**__
+> Additionally you can use docker image of postgres. **Instructions are below.**
 
 **batchsize:** The number of items to process in a batch.
 
@@ -70,7 +70,7 @@ You will need to configure the database connection details in the application.ya
 * username
 * password
 
-## Docker postgres
+### Docker-postgres
 To raise a PostgreSQL database through Docker, you can follow these steps:
 
 - Make sure that Docker is installed on your system. You can download and install Docker from the official website: https://www.docker.com/get-started
@@ -95,9 +95,9 @@ Host: localhost
 Port: 5432
 Database: search_engine
 User: postgres
-Password: mysecretpassword
+Password: mytopsecretpassword
 ```
-### If you have Docker plugin
+#### If you have Docker plugin
 in IDE (IntelliJ IDEA for example), you can follow these steps:
 
 - Open project in IntelliJ IDEA and make sure the Docker plugin is installed and enabled. You can check this by going to Settings/Preferences > Plugins and searching for "Docker" (you can find it there and install if it's not). Make sure that Docker is installed on your system as well.
