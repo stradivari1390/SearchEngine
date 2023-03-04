@@ -96,7 +96,7 @@ ErrorResponse: Returns a JSON object with an error field describing the error.
 
 ## In-browser usage
 
-The web interface (frontend component) of the project to which you can gain access through "**http://localhost:<port_you_have_set_in_config>/**" is a single web page with three tabs:
+The web interface (frontend component) of the project to which you can gain access through "**http://localhost:8080/**" (port is configurable) is a single web page with three tabs:
 
 ### Dashboard
 This tab opens by default. It displays general statistics for all sites, as well as detailed statistics and status for each of the sites (statistics obtained by querying /api/statistics).
