@@ -84,7 +84,9 @@ public class IndexingService {
             forkJoinPool.execute(webParser);
             int count = webParser.join();
             logger.info(webParser.getSite().getName() + ": " + count + " pages processed.");
-            if (!WebParser.stopped()) saveSiteStatus(site, StatusType.INDEXED);
+            if (!WebParser.stopped()) {
+                saveSiteStatus(site, StatusType.INDEXED);
+            }
         } catch (CancellationException e) {
             e.printStackTrace();
             site.setLastError("Ошибка индексации: " + e.getMessage());
@@ -110,7 +112,11 @@ public class IndexingService {
 
     @SneakyThrows
     public Response indexPage(String url) {
-        if (!WebParser.isValidLink(url)) {
+        if (url.isEmpty()) {
+            return new ErrorResponse(false, "Enter correct page URL, " +
+                    "You may try to copy it from address line in browser");
+        }
+        else if (!WebParser.isValidLink(url)) {
             return new ErrorResponse(false, "Данная страница находится за пределами сайтов, " +
                     "указанных в конфигурационном файле");
         }
@@ -136,8 +142,11 @@ public class IndexingService {
             int rank = entry.getValue();
             Lemma lemma = updateOrCreateLemma(site, lemmaString);
             Index index = indexRepository.findByLemmaAndPage(lemma, page);
-            if (index == null) index = new Index(lemma, page, rank);
-            else index.setRank(rank);
+            if (index == null) {
+                index = new Index(lemma, page, rank);
+            } else {
+                index.setRank(rank);
+            }
             indexRepository.save(index);
         }
         saveSiteStatus(site, StatusType.INDEXED);
@@ -180,7 +189,9 @@ public class IndexingService {
         List<WebParser> webParserList = new ArrayList<>();
         for (searchengine.config.Site initSite : initSites) {
             Site site = siteRepository.findSiteByUrl(initSite.getUrl());
-            if (site == null) site = new Site(initSite.getUrl(), initSite.getName());
+            if (site == null) {
+                site = new Site(initSite.getUrl(), initSite.getName());
+            }
             webParserList.add(newWebParse(site));
         }
         return webParserList;

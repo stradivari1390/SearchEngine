@@ -15,6 +15,10 @@ config:
 
 server:
   port: 8080
+  error:
+    whitelabel:
+      enabled: true
+    path: /error
 
 spring:
 #  aop:

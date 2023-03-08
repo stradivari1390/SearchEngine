@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Error</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+    }
+    h1 {
+      font-size: 3em;
+      text-align: center;
+      margin-top: 100px;
+      color: #555;
+    }
+    p {
+      font-size: 1.5em;
+      text-align: center;
+      margin-top: 50px;
+      color: #999;
+    }
+    a {
+      display: block;
+      text-align: center;
+      margin-top: 50px;
+    }
+  </style>
+</head>
+<body>
+<div th:switch="${status}">
+  <h1 th:case="'400'">Bad Request</h1>
+  <h1 th:case="'401'">Unauthorized</h1>
+  <h1 th:case="'403'">Forbidden</h1>
+  <h1 th:case="'404'">Not Found</h1>
+  <h1 th:case="'406'">Not Acceptable</h1>
+  <h1 th:case="'500'">Internal Server Error</h1>
+  <h1 th:case="*">Error</h1>
+</div>
+<p th:text="${message}"></p>
+<a th:href="@{/}" th:text="'Back to homepage'"></a>
+</body>
+</html>

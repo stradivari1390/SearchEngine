@@ -156,7 +156,7 @@
                   <h2 class="Section-title" th:text="#{menu.search}">Search
                   </h2>
                 </div>
-                <form class="form form_close" action="#" method="post" data-send="search" data-sendlimit="10">
+                <form class="form form_close" action="#" method="post" data-send="search">
                   <div class="form-group">
                     <div class="form-selectWrap">
                       <!-- - var options = setOptions(items, ['value', 'selected', 'disabled']);-->
@@ -173,13 +173,15 @@
                   </div>
                 </form>
                 <div class="SearchResult">
-                  <strong class="SearchResult-title" th:text="#{menu.found}">Found&#32;
-                    <span class="SearchResult-amount">0</span>result&#32;
+                  <strong class="SearchResult-title">
+                    <span th:text="#{menu.found}"></span>
+                    <span class="SearchResult-amount"></span>&#32;
+                    <span th:text="#{menu.sites}"></span>
                   </strong>
-                  <div class="SearchResult-content">
-                  </div>
+                  <div class="SearchResult-content"></div>
                   <div class="SearchResult-footer SearchResult-footer_hide">
-                    <button class="btn btn_primary" data-send="search" data-sendtype="next" th:text="#{menu.show_more}">Show more
+                    <button class="btn btn_primary" data-send="search" data-sendtype="next" th:text="#{menu.show_more}">
+                      Show more
                       <span class="SearchResult-remain">(0)</span>
                     </button>
                   </div>

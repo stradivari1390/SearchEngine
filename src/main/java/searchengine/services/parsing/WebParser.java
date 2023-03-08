@@ -78,10 +78,14 @@ public class WebParser extends RecursiveTask<Integer> {
     public Integer compute() {
         List<Page> pagesToSave = new ArrayList<>();
         for (String link : toParseLinkList) {
-            if (stop.get()) break;
+            if (stop.get()) {
+                break;
+            }
             String cleanLink = cleanUrl(link);
             synchronized (lock) {
-                if (visitedLinks.contains(cleanLink)) continue;
+                if (visitedLinks.contains(cleanLink)) {
+                    continue;
+                }
                 visitedLinks.add(cleanLink);
             }
             Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
@@ -90,7 +94,9 @@ public class WebParser extends RecursiveTask<Integer> {
             amount++;
         }
         saveLemmasAndIndices(pagesToSave);
-        if (!foundLinks.isEmpty()) processFoundLinks();
+        if (!foundLinks.isEmpty()) {
+            processFoundLinks();
+        }
         return amount;
     }
 
@@ -101,7 +107,9 @@ public class WebParser extends RecursiveTask<Integer> {
         for (Page page : pagesToSave) {
             Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
             for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
-                if (stop.get()) break;
+                if (stop.get()) {
+                    break;
+                }
                 int rank = entry.getValue();
                 Lemma lemma = addOrUpdateLemma(uniqueLemmas, entry.getKey());
                 Index index = new Index(lemma, page, rank);
@@ -120,8 +128,11 @@ public class WebParser extends RecursiveTask<Integer> {
         synchronized (lock) {
             if (lemma == null) {
                 lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
-                if (lemma != null) lemma.setFrequency(lemma.getFrequency() + 1);
-                else lemma = new Lemma(site, lemmaString);
+                if (lemma != null) {
+                    lemma.setFrequency(lemma.getFrequency() + 1);
+                } else {
+                    lemma = new Lemma(site, lemmaString);
+                }
                 uniqueLemmas.put(lemmaString, lemma);
             } else {
                 Lemma lemmaFromRepo = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
@@ -137,7 +148,9 @@ public class WebParser extends RecursiveTask<Integer> {
     private void processFoundLinks() {
         List<String> linksToProcess = new ArrayList<>(foundLinks);
         for (int i = 0; i < linksToProcess.size(); i += THRESHOLD) {
-            if (stop.get()) break;
+            if (stop.get()) {
+                break;
+            }
             int end = Math.min(linksToProcess.size(), i + THRESHOLD);
             List<String> subList = linksToProcess.subList(i, end);
             WebParser task = new WebParser(initSiteList, pageRepository, lemmaRepository, indexRepository,
@@ -171,7 +184,9 @@ public class WebParser extends RecursiveTask<Integer> {
         Elements linkElements = documentPageView.getKey().select("a[href]");
         for (Element linkElement : linkElements) {
             String absUrl = linkElement.attr("abs:href");
-            if (absUrl.length() > 0 && isValidLink(absUrl)) foundLinks.add(absUrl);
+            if (absUrl.length() > 0 && isValidLink(absUrl)) {
+                foundLinks.add(absUrl);
+            }
         }
         String textHtml = documentPageView.getKey().html();
         int code = documentPageView.getValue();

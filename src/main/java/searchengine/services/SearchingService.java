@@ -14,8 +14,7 @@ import searchengine.repository.*;
 import searchengine.services.parsing.Lemmatisator;
 
 import java.util.ArrayList;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.List;
 
 @Service
 public class SearchingService {
@@ -54,19 +53,12 @@ public class SearchingService {
         if (search.getCount() < offset) {
             return new ErrorResponse(false, "Некорректное значение смещения");
         }
-        if (search.getCount() > limit) {
-            search.setSearchResultSet(getLimitSearchResultSet(search, limit));
+        List<SearchResult> resultList = new ArrayList<>(search.getSearchResultSet());
+        if (offset + limit < search.getCount()) {
+            resultList = resultList.subList(offset, offset + limit);
+        } else {
+            resultList = resultList.subList(offset, search.getCount());
         }
-        return new SearchResponse(search.isResult(), search.getCount(), new ArrayList<>(search.getSearchResultSet()));
-    }
-
-    private Set<SearchResult> getLimitSearchResultSet(Search search, int limit) {
-        Set<SearchResult> searchResults = new TreeSet<>();
-        search.getSearchResultSet().forEach(searchResult -> {
-            if (searchResults.size() < limit) {
-                searchResults.add(searchResult);
-            }
-        });
-        return searchResults;
+        return new SearchResponse(search.isResult(), search.getCount(), resultList);
     }
 }

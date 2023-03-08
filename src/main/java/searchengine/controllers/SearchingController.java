@@ -5,6 +5,7 @@ import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.annotation.*;
 
 import searchengine.dto.responses.ErrorResponse;
@@ -28,7 +29,7 @@ public class SearchingController {
     public ResponseEntity<?> search(@RequestParam(name = "query", required = false) String query,
                                     @RequestParam(name = "site", required = false) String site,
                                     @RequestParam(name = "offset", defaultValue = "0") int offset,
-                                    @RequestParam(name = "limit", defaultValue = "20") int limit) {
+                                    @RequestParam(name = "limit", defaultValue = "10") int limit) {
         Response response = searchingService.search(query, site, offset, limit);
         if (response instanceof ErrorResponse) {
             ErrorResponse errorResponse = (ErrorResponse) response;
@@ -37,5 +38,11 @@ public class SearchingController {
             SearchResponse searchResponse = (SearchResponse) response;
             return new ResponseEntity<>(searchResponse, HttpStatus.OK);
         }
+    }
+
+    @ResponseBody
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public String handleHttpMediaTypeNotAcceptableException() {
+        return "Search query should not be empty";
     }
 }

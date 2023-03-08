@@ -1687,13 +1687,13 @@
                             if ($this.next('.API-error').length) {
                                 $this.next('.API-error').remove();
                             }
-                            var $searchResults = $('.SearchResult'),
+                            let $searchResults = $('.SearchResult'),
                                 $content = $searchResults.find('.SearchResult-content');
                             if (data.offset === 0) {
                                 $content.empty();
                             }
                             $searchResults.find('.SearchResult-amount').text(result.count);
-                            var scroll = $(window).scrollTop();
+                            let scroll = $(window).scrollTop();
                             result.data.forEach(function (page) {
                                 $content.append('<div class="SearchResult-block">' +
                                     '<a href="' + (page.uri.startsWith("http") ? '' : page.siteUrl) + page.uri + '" target="_blank" class="SearchResult-siteTitle">' +
@@ -1718,7 +1718,6 @@
                             } else {
                                 $('.SearchResult-footer').addClass('SearchResult-footer_hide')
                             }
-
                         } else {
                             if ($this.next('.API-error').length) {
                                 $this.next('.API-error').text(result.error);

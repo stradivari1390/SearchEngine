@@ -20,10 +20,15 @@ public class SearchResult implements Comparable<SearchResult> {
 
     @Override
     public int compareTo(SearchResult o) {
-        if (relevance > o.getRelevance()) {
-            return -1;
+        int relevanceComparison = Float.compare(o.relevance, relevance);
+        if (relevanceComparison != 0) {
+            return relevanceComparison;
         }
-        return 1;
+        int siteUrlComparison = siteUrl.compareTo(o.siteUrl);
+        if (siteUrlComparison != 0) {
+            return siteUrlComparison;
+        }
+        return title.compareTo(o.title);
     }
 
     @Override
