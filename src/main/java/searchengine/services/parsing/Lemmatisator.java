@@ -5,8 +5,8 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 
-import org.htmlcleaner.HtmlCleaner;
-import org.htmlcleaner.TagNode;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
 import searchengine.exceptions.LemmatizationException;
 
@@ -19,8 +19,6 @@ public class Lemmatisator {
     private static final String[] redundantForms = {"ПРЕДЛ", "СОЮЗ", "МЕЖД", "ВВОДН", "ЧАСТ", "МС", "CONJ", "PART"};
     private final LuceneMorphology russianMorph;
     private final LuceneMorphology englishMorph;
-
-    private static final HtmlCleaner cleaner = new HtmlCleaner();
 
     @SneakyThrows
     public Lemmatisator() {
@@ -71,8 +69,8 @@ public class Lemmatisator {
     }
 
     public Map<String, Integer> collectLemmasAndRanks(String html) {
-        TagNode node = cleaner.clean(html);
-        String plainText = node.getText().toString();
+        Document doc = Jsoup.parse(html);
+        String plainText = doc.text();
         String[] words = plainText.toLowerCase().split("[^a-zа-я]+");
         HashMap<String, Integer> lemmas = new HashMap<>();
 

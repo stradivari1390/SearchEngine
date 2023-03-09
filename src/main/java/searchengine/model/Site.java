@@ -22,9 +22,9 @@ public class Site {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(name = "id", nullable = false)
-    private int id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "site_id_seq")
+    @SequenceGenerator(name = "site_id_seq", sequenceName = "site_id_seq", allocationSize = 1)
+    private Long id;
 
     @Column(name = "status", nullable = false, length = 10)
     @Enumerated(EnumType.STRING)

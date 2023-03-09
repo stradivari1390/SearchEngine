@@ -16,7 +16,11 @@ import java.util.Objects;
 @Getter
 @Setter
 @Entity
-@Table(name = "`index`")
+@Table(name = "`index`", indexes = {
+        @javax.persistence.Index(name = "idx_index_lemma_id", columnList = "lemma_id"),
+        @javax.persistence.Index(name = "idx_index_page_id", columnList = "page_id"),
+        @javax.persistence.Index(name = "idx_index_lemma_id_page_id", columnList = "lemma_id, page_id")
+})
 public class Index {
 
     public Index(Lemma lemma, Page page, float rank) {
@@ -26,9 +30,9 @@ public class Index {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(name = "id", nullable = false)
-    private int id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "index_id_seq")
+    @SequenceGenerator(name = "index_id_seq", sequenceName = "index_id_seq", allocationSize = 1)
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE, optional = false)
     @JoinColumn(name = "lemma_id", nullable = false, foreignKey = @ForeignKey(name = "FK_index_lemma"))

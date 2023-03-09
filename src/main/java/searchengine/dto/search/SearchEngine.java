@@ -1,9 +1,10 @@
 package searchengine.dto.search;
 
-import lombok.SneakyThrows;
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
 import org.htmlcleaner.XPatherException;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import searchengine.model.*;
@@ -14,7 +15,6 @@ import searchengine.repository.SiteRepository;
 import searchengine.services.parsing.Lemmatisator;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 public final class SearchEngine {
@@ -37,13 +37,100 @@ public final class SearchEngine {
         this.lemmatisator = lemmatisator;
     }
 
+    public List<SearchResult> getResultList(String query, Site site) {
+        List<SearchResult> results = new ArrayList<>();
+        int limitOfPresence = (int) (pageRepository.countBySite(site) * 0.8);
+        Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
+        List<Lemma> uniqueLemmas = findUniqueLemmas(lemmas, site, limitOfPresence);
+        if (uniqueLemmas.isEmpty()) {
+            return results;
+        }
+        List<Page> matchingPages = findMatchingPages(uniqueLemmas);
+        if (matchingPages.isEmpty()) {
+            return results;
+        }
+        Map<Page, Float> pageRelevanceMap = getPageRelevanceMap(matchingPages, uniqueLemmas);
+        float maxRelevance = getMaxRelevance(pageRelevanceMap);
+        for (Map.Entry<Page, Float> entry : pageRelevanceMap.entrySet()) {
+            Page page = entry.getKey();
+            Document doc = Jsoup.parse(page.getContent());
+            String text = doc.text();
+            float relativeRelevance = maxRelevance != 0 ? entry.getValue() / maxRelevance : 0;
+            results.add(new SearchResult(site.getUrl(),
+                    site.getName(),
+                    Objects.equals(page.getPath(), site.getUrl()) ?
+                            site.getUrl() :
+                            page.getPath().replace(site.getUrl(), ""),
+                    getSearchResultTitle(page, text),
+                    generateSnippet(text, uniqueLemmas),
+                    relativeRelevance));
+        }
+        return results;
+    }
+
+    private List<Lemma> findUniqueLemmas(Map<String, Integer> lemmas, Site site, int limitOfPresence) {
+        List<Lemma> uniqueLemmas = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : lemmas.entrySet()) {
+            Lemma lemmaFromRepository = lemmaRepository.findLemmaByLemmaStringAndSite(entry.getKey(), site);
+            if (lemmaFromRepository != null && lemmaFromRepository.getFrequency() <= limitOfPresence) {
+                uniqueLemmas.add(lemmaFromRepository);
+            } else {
+                return new ArrayList<>();
+            }
+        }
+        uniqueLemmas.sort(Comparator.comparingInt(Lemma::getFrequency));
+        return uniqueLemmas;
+    }
+
+    private List<Page> findMatchingPages(List<Lemma> uniqueLemmas) {
+        List<Page> matchingPages = new ArrayList<>();
+        for (Lemma lemma : uniqueLemmas) {
+            List<Index> indices = indexRepository.findAllByLemma(lemma);
+            if (indices == null || indices.isEmpty()) {
+                matchingPages.clear();
+                break;
+            }
+            List<Page> pages = pageRepository.findAllByIndices(indices);
+            if (matchingPages.isEmpty()) {
+                matchingPages.addAll(pages);
+            } else {
+                matchingPages.retainAll(pages);
+                if (matchingPages.isEmpty()) {
+                    break;
+                }
+            }
+        }
+        return matchingPages;
+    }
+
+    private Map<Page, Float> getPageRelevanceMap(List<Page> matchingPages, List<Lemma> uniqueLemmas) {
+        Map<Page, Float> pageRelevanceMap = new HashMap<>();
+        for (Page page : matchingPages) {
+            float absoluteRelevance = 0;
+            for (Lemma lemma : uniqueLemmas) {
+                Index index = indexRepository.findByLemmaAndPage(lemma, page);
+                if (index != null) {
+                    absoluteRelevance += index.getRank();
+                }
+            }
+            pageRelevanceMap.put(page, absoluteRelevance);
+        }
+        return pageRelevanceMap;
+    }
+
+    private float getMaxRelevance(Map<Page, Float> pageRelevanceMap) {
+        return pageRelevanceMap.values().stream()
+                .max(Float::compareTo)
+                .orElse(0f);
+    }
+
     public Search search(String query, Site site) {
         Set<SearchResult> searchResults;
         if (site == null) {
             searchResults = new TreeSet<>();
-            siteRepository.findAll().forEach(s -> searchResults.addAll(getSearchesBySite(query, s)));
+            siteRepository.findAll().forEach(s -> searchResults.addAll(getResultList(query, s)));
         } else {
-            searchResults = new TreeSet<>(getSearchesBySite(query, site));
+            searchResults = new TreeSet<>(getResultList(query, site));
         }
         Search search = new Search();
         search.setCount(searchResults.size());
@@ -52,75 +139,21 @@ public final class SearchEngine {
         return search;
     }
 
-    @SneakyThrows
-    private List<SearchResult> getSearchesBySite(String query, Site site) {
-        List<Page> pageList = pageRepository.findAllBySite(site);
-        Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
-        Set<Lemma> lemmaSet = new HashSet<>();
-        lemmas.keySet().forEach(lemma -> lemmaSet.add(lemmaRepository.findLemmaByLemmaStringAndSite(lemma, site)));
-        List<IndexRank> indexRanks = getIndexRanks(lemmaSet, pageList);
-        return getSearchResults(indexRanks, lemmaSet, site);
-    }
-
-    private List<IndexRank> getIndexRanks(Set<Lemma> lemmaSet, List<Page> pageList) {
-        List<IndexRank> indexRankList = new ArrayList<>();
-        pageList.forEach(page -> {
-            Map<String, Float> pageLemmas = new HashMap<>();
-            lemmaSet.forEach(lemma -> {
-                Index index = indexRepository.findByLemmaAndPage(lemma, page);
-                if (index != null) {
-                    pageLemmas.put(lemma.getLemmaString(), index.getRank());
-                }
-            });
-            if (!pageLemmas.isEmpty()) {
-                IndexRank indexRank = new IndexRank();
-                indexRank.setPage(page);
-                indexRank.setRankMap(pageLemmas);
-                indexRank.setrAbs();
-                indexRank.setrRel();
-                indexRankList.add(indexRank);
-            }
-        });
-        return indexRankList;
-    }
-
-    private List<SearchResult> getSearchResults(List<IndexRank> indexRanks, Set<Lemma> lemmaSet, Site site) {
-        return indexRanks.parallelStream()
-                .map(indexRank -> createSearchResult(indexRank, lemmaSet, site))
-                .filter(searchResult -> searchResult.getSnippet().length() > 0)
-                .collect(Collectors.toList());
-    }
-
-    private SearchResult createSearchResult(IndexRank indexRank, Set<Lemma> lemmaSet, Site site) {
-        String html = indexRank.getPage().getContent();
-        TagNode node = cleaner.clean(html);
-        String text = node.getText().toString().toLowerCase();
-        String snippet = createSnippet(text, lemmaSet);
-        SearchResult searchResult = new SearchResult();
-        setSearchResultTitle(node, text, searchResult);
-        searchResult.setRelevance(indexRank.getRRel());
-        searchResult.setSnippet(snippet);
-        searchResult.setUri(Objects.equals(indexRank.getPage().getPath(), site.getUrl()) ?
-                site.getUrl() :
-                indexRank.getPage().getPath().replace(site.getUrl(), ""));
-        searchResult.setSiteUrl(site.getUrl());
-        searchResult.setSiteName(site.getName());
-        return searchResult;
-    }
-
-    private void setSearchResultTitle(TagNode node, String text, SearchResult searchResult) {
+    private String getSearchResultTitle(Page page, String text) {
+        TagNode node = cleaner.clean(page.getContent());
+        String title = "";
         try {
-            String title = getTitleFromNode(node);
+            title = getTitleFromNode(node);
             if (title == null) {
                 title = getTitleFromAttribute(node);
             }
             if (title == null) {
                 title = getTitleFromLemmas(text);
             }
-            searchResult.setTitle(title);
         } catch (XPatherException e) {
             e.printStackTrace();
         }
+        return title;
     }
 
     private String getTitleFromNode(TagNode node) throws XPatherException {
@@ -155,21 +188,27 @@ public final class SearchEngine {
                 maxEntry.getKey().substring(0, 1).toUpperCase() + maxEntry.getKey().substring(1);
     }
 
-    private String createSnippet(String text, Set<Lemma> lemmaSet) {
-        String snippet = "";
-        Set<Lemma> lemmaToRemove = new HashSet<>();
-        for (Lemma lemma : lemmaSet) {
-            String lemmaString = lemma.getLemmaString();
-            if (text.contains(lemmaString)) {
-                text = text.replaceAll("(?i)" + lemmaString, "<b>" + lemmaString + "</b>");
-                int start = text.indexOf("<b>") - 75;
-                int end = text.indexOf("</b>") + 75;
-                if (start < 0) start = 0;
-                if (end >= text.length()) end = text.length() - 1;
-                snippet = "..." + text.substring(start, end) + "...";
-            } else lemmaToRemove.add(lemma);
+    private String generateSnippet(String text, List<Lemma> lemmas) {
+        StringBuilder snippetBuilder = new StringBuilder();
+        for (Lemma lemma : lemmas) {
+            String lemmaString = lemma.getLemmaString().toLowerCase();
+            int index = text.toLowerCase().indexOf(lemmaString);
+            if (index != -1) {
+                int end = Math.min(text.length(), index + lemmaString.length() + 80);
+                int startIndex = Math.max(0, index - 80);
+                String snippet = text.substring(startIndex, end);
+                int lemmaStart = snippet.toLowerCase().indexOf(lemmaString);
+                int lemmaEnd = lemmaStart + lemmaString.length();
+                snippet = snippet.substring(0, lemmaStart) + "<b>" + snippet.substring(lemmaStart, lemmaEnd) + "</b>" + snippet.substring(lemmaEnd);
+                if (startIndex > 0) {
+                    snippet = " ... " + snippet;
+                }
+                if (end < text.length()) {
+                    snippet = snippet + " ... ";
+                }
+                snippetBuilder.append(snippet).append(" ");
+            }
         }
-        lemmaSet.removeAll(lemmaToRemove);
-        return snippet;
+        return snippetBuilder.toString();
     }
 }
