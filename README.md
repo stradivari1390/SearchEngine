@@ -2,6 +2,7 @@
 <img src="https://advertiseonbing-blob.azureedge.net/blob/bingads/media/page/solutions/search-engine-marketing-page-refresh/pub-2826-image01.jpg?ext=.jpg" alt="Search Engine Project" width="600">
 
 This is a search engine project developed in Java and using various libraries and frameworks. The project is designed to index a limited amount of sites including all their web pages and provide a relevant search functionality.
+> *Currently, the engine is able to process sites that contain non-scripted link elements. We are currently working on developing an algorithm to bypass more complex, scripted sites.*
 
 ## Technologies Used
 
