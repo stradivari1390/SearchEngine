@@ -7,7 +7,7 @@ import lombok.Data;
 @AllArgsConstructor
 public class TotalStatistics {
     private int sites;
-    private int pages;
-    private int lemmas;
+    private Long pages;
+    private Long lemmas;
     private boolean indexing;
 }

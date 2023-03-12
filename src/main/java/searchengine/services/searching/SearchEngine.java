@@ -1,4 +1,4 @@
-package searchengine.dto.search;
+package searchengine.services.searching;
 
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
@@ -7,6 +7,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import searchengine.dto.search.Search;
+import searchengine.dto.search.SearchResult;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
@@ -40,7 +42,7 @@ public final class SearchEngine {
     public List<SearchResult> getResultList(String query, Site site) {
         List<SearchResult> results = new ArrayList<>();
         int limitOfPresence = (int) (pageRepository.countBySite(site) * 0.8);
-        Map<String, Integer> lemmas = lemmatisator.collectLemmasAndRanks(query);
+        List<String> lemmas = lemmatisator.convertTextIntoLemmasList(query);
         List<Lemma> uniqueLemmas = findUniqueLemmas(lemmas, site, limitOfPresence);
         if (uniqueLemmas.isEmpty()) {
             return results;
@@ -53,25 +55,23 @@ public final class SearchEngine {
         float maxRelevance = getMaxRelevance(pageRelevanceMap);
         for (Map.Entry<Page, Float> entry : pageRelevanceMap.entrySet()) {
             Page page = entry.getKey();
-            Document doc = Jsoup.parse(page.getContent());
-            String text = doc.text();
             float relativeRelevance = maxRelevance != 0 ? entry.getValue() / maxRelevance : 0;
             results.add(new SearchResult(site.getUrl(),
                     site.getName(),
                     Objects.equals(page.getPath(), site.getUrl()) ?
                             site.getUrl() :
                             page.getPath().replace(site.getUrl(), ""),
-                    getSearchResultTitle(page, text),
-                    generateSnippet(text, uniqueLemmas),
+                    page.getPath(),
+                    page.getPath(),
                     relativeRelevance));
         }
         return results;
     }
 
-    private List<Lemma> findUniqueLemmas(Map<String, Integer> lemmas, Site site, int limitOfPresence) {
+    private List<Lemma> findUniqueLemmas(List<String> lemmas, Site site, int limitOfPresence) {
         List<Lemma> uniqueLemmas = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : lemmas.entrySet()) {
-            Lemma lemmaFromRepository = lemmaRepository.findLemmaByLemmaStringAndSite(entry.getKey(), site);
+        for (String lemma : lemmas) {
+            Lemma lemmaFromRepository = lemmaRepository.findLemmaByLemmaStringAndSite(lemma, site);
             if (lemmaFromRepository != null && lemmaFromRepository.getFrequency() <= limitOfPresence) {
                 uniqueLemmas.add(lemmaFromRepository);
             } else {
@@ -83,24 +83,8 @@ public final class SearchEngine {
     }
 
     private List<Page> findMatchingPages(List<Lemma> uniqueLemmas) {
-        List<Page> matchingPages = new ArrayList<>();
-        for (Lemma lemma : uniqueLemmas) {
-            List<Index> indices = indexRepository.findAllByLemma(lemma);
-            if (indices == null || indices.isEmpty()) {
-                matchingPages.clear();
-                break;
-            }
-            List<Page> pages = pageRepository.findAllByIndices(indices);
-            if (matchingPages.isEmpty()) {
-                matchingPages.addAll(pages);
-            } else {
-                matchingPages.retainAll(pages);
-                if (matchingPages.isEmpty()) {
-                    break;
-                }
-            }
-        }
-        return matchingPages;
+        long lemmaCount = uniqueLemmas.size();
+        return pageRepository.findAllByLemmas(uniqueLemmas, lemmaCount);
     }
 
     private Map<Page, Float> getPageRelevanceMap(List<Page> matchingPages, List<Lemma> uniqueLemmas) {
@@ -124,18 +108,32 @@ public final class SearchEngine {
                 .orElse(0f);
     }
 
-    public Search search(String query, Site site) {
-        Set<SearchResult> searchResults;
+    public Search search(String query, Site site, int offset, int limit) {
+        TreeSet<SearchResult> searchResults;
         if (site == null) {
             searchResults = new TreeSet<>();
             siteRepository.findAll().forEach(s -> searchResults.addAll(getResultList(query, s)));
         } else {
             searchResults = new TreeSet<>(getResultList(query, site));
         }
+
+        List<SearchResult> resultList = new ArrayList<>(searchResults);
+        int endIndex = Math.min(offset + limit, resultList.size());
+        List<SearchResult> subList = resultList.subList(offset, endIndex);
+        subList.forEach(s -> {
+            Page page = pageRepository.findByPath(s.getSnippet());
+            Document doc = Jsoup.parse(page.getContent());
+            String text = doc.text();
+            List<String> lemmas = lemmatisator.convertTextIntoLemmasList(query);
+            s.setSnippet(generateHighlightedSnippet(text, lemmas));
+            s.setTitle(getSearchResultTitle(page, text));
+        });
+
         Search search = new Search();
         search.setCount(searchResults.size());
         search.setResult(true);
         search.setSearchResultSet(searchResults);
+
         return search;
     }
 
@@ -188,27 +186,79 @@ public final class SearchEngine {
                 maxEntry.getKey().substring(0, 1).toUpperCase() + maxEntry.getKey().substring(1);
     }
 
-    private String generateSnippet(String text, List<Lemma> lemmas) {
-        StringBuilder snippetBuilder = new StringBuilder();
-        for (Lemma lemma : lemmas) {
-            String lemmaString = lemma.getLemmaString().toLowerCase();
-            int index = text.toLowerCase().indexOf(lemmaString);
-            if (index != -1) {
-                int end = Math.min(text.length(), index + lemmaString.length() + 80);
-                int startIndex = Math.max(0, index - 80);
-                String snippet = text.substring(startIndex, end);
-                int lemmaStart = snippet.toLowerCase().indexOf(lemmaString);
-                int lemmaEnd = lemmaStart + lemmaString.length();
-                snippet = snippet.substring(0, lemmaStart) + "<b>" + snippet.substring(lemmaStart, lemmaEnd) + "</b>" + snippet.substring(lemmaEnd);
-                if (startIndex > 0) {
-                    snippet = " ... " + snippet;
-                }
-                if (end < text.length()) {
-                    snippet = snippet + " ... ";
-                }
-                snippetBuilder.append(snippet).append(" ");
+    private String generateHighlightedSnippet(String text, List<String> lemmas) {
+        StringBuilder result = new StringBuilder();
+        String[] words = text.split("[^a-zA-Zа-яА-Я]+");
+        StringBuilder highlightedTextBuilder = new StringBuilder(text);
+        int currentIndex = 0;
+        for (String word : words) {
+            String lemma = lemmatisator.getWordLemma(word.toLowerCase());
+            if (lemmas.contains(lemma)) {
+                int startIndex = highlightedTextBuilder.indexOf(word, currentIndex);
+                int endIndex = startIndex + word.length();
+                highlightedTextBuilder.insert(startIndex, "<b>");
+                highlightedTextBuilder.insert(endIndex + 3, "</b>");
+                currentIndex = endIndex + 7;
             }
         }
-        return snippetBuilder.toString();
+        result.append(extractSnippetWithMaxHighlights(highlightedTextBuilder));
+        return result.toString();
+    }
+
+    private StringBuilder extractSnippetWithMaxHighlights(StringBuilder inputText) {
+        List<Integer> boldWordsIndices = findSubstringIndices(inputText, "<b>");
+        int[] firstAndLastIndices = findMaxConsecutiveSubsequence(boldWordsIndices);
+        int maxIndex = Math.min(
+                firstAndLastIndices[1] + (firstAndLastIndices[0] == firstAndLastIndices[1] ? 100 : 50),
+                inputText.length()
+        );
+        int minIndex = Math.max(
+                0,
+                firstAndLastIndices[0] - (firstAndLastIndices[0] == firstAndLastIndices[1] ? 100 : 50)
+        );
+        int initialLength = inputText.length();
+        inputText.delete(maxIndex, inputText.length());
+        if (maxIndex < initialLength) {
+            inputText.append("...");
+        }
+        inputText.delete(0, minIndex);
+        if (minIndex > 0) {
+            inputText.insert(0, "...");
+        }
+        return inputText;
+    }
+
+    private List<Integer> findSubstringIndices(StringBuilder text, String substring) {
+        List<Integer> indices = new ArrayList<>();
+        int index = text.indexOf(substring);
+        while (index != -1) {
+            indices.add(index);
+            index = text.indexOf(substring, index + substring.length());
+        }
+        return indices;
+    }
+
+    public int[] findMaxConsecutiveSubsequence(List<Integer> nums) {
+        int maxLength = 0;
+        int start = 0;
+        int end = 0;
+        int currentLength = 1;
+
+        for (int i = 1; i < nums.size(); i++) {
+            if ((nums.get(i) - nums.get(i - 1)) < 225
+                    && (nums.get(end) - nums.get(start)) < 225) {
+                currentLength++;
+                if (currentLength > maxLength) {
+                    maxLength = currentLength;
+                    start = i - maxLength + 1;
+                    end = i;
+                }
+            } else {
+                currentLength = 1;
+            }
+        }
+        return start == end ?
+                new int[]{nums.get(0), nums.get(0)} :
+                new int[]{nums.get(start), nums.get(end)};
     }
 }

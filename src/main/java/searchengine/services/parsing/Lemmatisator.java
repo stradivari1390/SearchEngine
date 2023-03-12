@@ -54,17 +54,17 @@ public class Lemmatisator {
         return true;
     }
 
-    private String checkLanguage(String word) {
+    private Language checkLanguage(String word) {
 
         String rus = "[а-яА-Я]+";
         String eng = "[a-zA-Z]+";
 
         if (word.matches(rus)) {
-            return "Rus";
+            return Language.RUS;
         } else if (word.matches(eng)) {
-            return "Eng";
+            return Language.ENG;
         } else {
-            return "Unidentified";
+            return Language.UNIDENTIFIED;
         }
     }
 
@@ -73,19 +73,45 @@ public class Lemmatisator {
         String plainText = doc.text();
         String[] words = plainText.toLowerCase().split("[^a-zа-я]+");
         HashMap<String, Integer> lemmas = new HashMap<>();
-
         for (String word : words) {
-            if (word.isBlank() || word.length() < 3 || word.length() > 45 ||
-                    checkLanguage(word).equals("Rus") && !isCorrectRussianWord(word) ||
-                    checkLanguage(word).equals("Eng") && !isCorrectEnglishWord(word) ||
-                    checkLanguage(word).equals("Unidentified")) {
-                continue;
+            if (isDictionaryWord(word)) {
+                List<String> normalForms = checkLanguage(word).equals(Language.RUS) ?
+                        russianMorph.getNormalForms(word) : englishMorph.getNormalForms(word);
+                String normalWord = normalForms.iterator().next();
+                lemmas.put(normalWord, lemmas.containsKey(normalWord) ? (lemmas.get(normalWord) + 1) : 1);
             }
-            List<String> normalForms = checkLanguage(word).equals("Rus") ?
-                    russianMorph.getNormalForms(word) : englishMorph.getNormalForms(word);
-            String normalWord = normalForms.get(0);
-            lemmas.put(normalWord, lemmas.containsKey(normalWord) ? (lemmas.get(normalWord) + 1) : 1);
         }
         return lemmas;
+    }
+
+    public List<String> convertTextIntoLemmasList(String text) {
+        String[] words = text.toLowerCase().split("[^a-zа-я]+");
+        HashSet<String> lemmas = new HashSet<>();
+        for (String word : words) {
+            if (isDictionaryWord(word)) {
+                List<String> normalForms = checkLanguage(word).equals(Language.RUS) ?
+                        russianMorph.getNormalForms(word) : englishMorph.getNormalForms(word);
+                String normalWord = normalForms.iterator().next();
+                lemmas.add(normalWord);
+            }
+        }
+        return new ArrayList<>(lemmas);
+    }
+
+    public String getWordLemma(String word) {
+        String normalWord = null;
+        if (isDictionaryWord(word)) {
+            List<String> normalForms = checkLanguage(word).equals(Language.RUS) ?
+                    russianMorph.getNormalForms(word) : englishMorph.getNormalForms(word);
+            normalWord = normalForms.iterator().next();
+        }
+        return normalWord;
+    }
+
+    private boolean isDictionaryWord(String word) {
+        return !(word.isBlank() || word.length() < 3 || word.length() > 45 ||
+                checkLanguage(word).equals(Language.RUS) && !isCorrectRussianWord(word) ||
+                checkLanguage(word).equals(Language.ENG) && !isCorrectEnglishWord(word) ||
+                checkLanguage(word).equals(Language.UNIDENTIFIED));
     }
 }

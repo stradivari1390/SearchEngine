@@ -16,20 +16,26 @@ import java.util.List;
 @Service
 public class StatisticsService {
     private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
 
     @Autowired
-    public StatisticsService(SiteRepository siteRepository) {
+    public StatisticsService(SiteRepository siteRepository,
+                             PageRepository pageRepository,
+                             LemmaRepository lemmaRepository) {
         this.siteRepository = siteRepository;
+        this.pageRepository = pageRepository;
+        this.lemmaRepository = lemmaRepository;
     }
 
     public StatisticsResponse getStatistics() {
-        TotalStatistics total = new TotalStatistics(0, 0, 0, false);
+        TotalStatistics total = new TotalStatistics(0, 0L, 0L, false);
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
 
         List<Site> sites = siteRepository.findAll();
         for (Site site : sites) {
-            int pages = site.getPages().size();
-            int lemmas = site.getLemmas().size();
+            long pages = pageRepository.countBySite(site);
+            long lemmas = lemmaRepository.countBySite(site);
 
             DetailedStatisticsItem detailedStatisticsDto = new DetailedStatisticsItem(
                     site.getUrl(),

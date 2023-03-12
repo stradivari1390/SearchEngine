@@ -14,7 +14,8 @@ import java.util.List;
 public interface LemmaRepository extends JpaRepository<Lemma, Long> {
 
     @EntityGraph(attributePaths = {"site"})
-    Lemma findLemmaByLemmaStringAndSite(String lemmaString, Site site);
+    @Query("SELECT l FROM Lemma l JOIN FETCH l.site WHERE l.lemmaString = :lemmaString AND l.site = :site")
+    Lemma findLemmaByLemmaStringAndSite(@Param("lemmaString") String lemmaString, @Param("site") Site site);
 
     @Query("SELECT l FROM Lemma l JOIN FETCH l.indices WHERE l.lemmaString = :lemmaString")
     List<Lemma> findAllByLemmaStringFetchIndices(@Param("lemmaString") String lemmaString);

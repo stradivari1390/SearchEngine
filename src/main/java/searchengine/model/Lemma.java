@@ -17,7 +17,8 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "lemma", indexes = {
-        @javax.persistence.Index(name = "idx_lemma_site_id_lemma_unq", columnList = "site_id, lemma", unique = true)
+        @javax.persistence.Index(name = "idx_lemma_site_id_lemma_unq", columnList = "site_id, lemma", unique = true),
+        @javax.persistence.Index(name = "idx_lemma_site_id", columnList = "site_id")
 }, uniqueConstraints = {
         @UniqueConstraint(columnNames = {"lemma", "site_id"})
 })

@@ -4,10 +4,10 @@ indexing-settings:
       name: Лента.ру
     - url: https://skillbox.ru/
       name: Skillbox
-    - url: https://playback.ru/
-      name: PlayBack.Ru
-    - url: https://dombulgakova.ru/
-      name: Дом Булгакова
+    - url: https://baliforum.ru/
+      name: Bali Forum
+#    - url: https://www.baeldung.com/
+#      name: Baeldung
 
 config:
   userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36

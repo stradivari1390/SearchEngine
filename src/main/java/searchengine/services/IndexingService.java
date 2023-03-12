@@ -6,6 +6,7 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -54,10 +55,10 @@ public class IndexingService {
 
     @Transactional
     protected void clearData() {
-        indexRepository.deleteAll();
-        lemmaRepository.deleteAll();
-        pageRepository.deleteAll();
-        siteRepository.deleteAll();
+        indexRepository.deleteAllInBatch();
+        lemmaRepository.deleteAllInBatch();
+        pageRepository.deleteAllInBatch();
+        siteRepository.deleteAllInBatch();
         WebParser.clearVisitedLinks();
     }
 
@@ -94,15 +95,14 @@ public class IndexingService {
         }
     }
 
-    @SneakyThrows
     public Response stopIndexing() {
         if (indexing.compareAndSet(true, false)) {
-            siteRepository.findAll().forEach(site -> {
-                if (site.getStatus().equals(StatusType.INDEXING)) {
-                    site.setLastError("Индексация прервана пользователем");
-                    saveSiteStatus(site, StatusType.FAILED);
-                }
-            });
+            siteRepository.findAllByStatus(StatusType.INDEXING)
+                    .forEach(s -> {
+                        s.setLastError("Индексация прервана пользователем");
+                        s.setStatus(StatusType.FAILED);
+                        siteRepository.save(s);
+                    });
             WebParser.stopCrawling();
             return new IndexResponse(true);
         } else {
@@ -113,29 +113,34 @@ public class IndexingService {
     @SneakyThrows
     public Response indexPage(String url) {
         if (url.isEmpty()) {
-            return new ErrorResponse(false, "Enter correct page URL, " +
-                    "You may try to copy it from address line in browser");
-        }
-        else if (!WebParser.isValidLink(url)) {
+            return new ErrorResponse(false, "Требуется ввести URL");
+        } else if (!WebParser.isValidLink(url)) {
             return new ErrorResponse(false, "Данная страница находится за пределами сайтов, " +
                     "указанных в конфигурационном файле");
         }
         Site site;
+        StatusType initStatusType = null;
         Pattern pattern = Pattern.compile("^(?:https?:\\/\\/)?(?:www\\.)?([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})(?:$|\\/)");
         Matcher matcher = pattern.matcher(url);
         if (matcher.find()) {
             String domainName = matcher.group();
-            site = siteRepository.findSiteByUrl(domainName.replaceAll("/www\\.", "/"));
+            site = siteRepository.findSiteByUrl(domainName.replaceAll("/w{3}\\.", "/"));
+            initStatusType = site.getStatus();
         } else {
             site = createNewSite(url);
         }
-        assert site != null;
-        if (site.getStatus() == StatusType.INDEXING) {
+        if (initStatusType == StatusType.INDEXING) {
             return new ErrorResponse(false, "Индексация уже запущена");
         }
+        assert site != null;
         saveSiteStatus(site, StatusType.INDEXING);
         WebParser webParser = newWebParse(site);
-        Page page = webParser.addPage(url).getKey();
+        Map.Entry<Page, Boolean> pageEntry = webParser.addPage(url);
+        if (pageEntry == null) {
+            return new ErrorResponse(false, "Требуется ввести корректный URL, " +
+                    "можете попробовать скопировать его из адресной строки браузера");
+        }
+        Page page = pageEntry.getKey();
         Map<String, Integer> lemmaRankMap = lemmatisator.collectLemmasAndRanks(page.getContent());
         for (Map.Entry<String, Integer> entry : lemmaRankMap.entrySet()) {
             String lemmaString = entry.getKey();
@@ -149,7 +154,7 @@ public class IndexingService {
             }
             indexRepository.save(index);
         }
-        saveSiteStatus(site, StatusType.INDEXED);
+        saveSiteStatus(site, initStatusType == null ? StatusType.INDEXED : initStatusType);
         return new IndexResponse(true);
     }
 

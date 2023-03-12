@@ -18,11 +18,13 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
 import searchengine.config.Config;
 import searchengine.config.InitSiteList;
 import searchengine.exceptions.WebParserException;
@@ -89,6 +91,9 @@ public class WebParser extends RecursiveTask<Integer> {
                 visitedLinks.add(cleanLink);
             }
             Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
+            if (htmlData == null) {
+                continue;
+            }
             Page page = new Page(site, cleanLink, htmlData.getValue(), htmlData.getKey());
             pagesToSave.add(page);
             amount++;
@@ -161,8 +166,7 @@ public class WebParser extends RecursiveTask<Integer> {
         }
     }
 
-    @SneakyThrows
-    private Map.Entry<Document, Integer> getPageDocumentView(String url) {
+    private Map.Entry<Document, Integer> getPageDocumentView(String url) throws WebParserException {
         Connection.Response response;
         Document document;
         try {
@@ -180,8 +184,13 @@ public class WebParser extends RecursiveTask<Integer> {
     }
 
     private Map.Entry<String, Integer> getHtmlAndCollectLinks(String url) {
-        Map.Entry<Document, Integer> documentPageView = getPageDocumentView(url);
-        Elements linkElements = documentPageView.getKey().select("a[href]");
+        Map.Entry<Document, Integer> documentPageView = null;
+        try {
+            documentPageView = getPageDocumentView(url);
+        } catch (WebParserException e) {
+            return null;
+        }
+        Elements linkElements = documentPageView.getKey().select("a[href], link[href]");
         for (Element linkElement : linkElements) {
             String absUrl = linkElement.attr("abs:href");
             if (absUrl.length() > 0 && isValidLink(absUrl)) {
@@ -201,8 +210,8 @@ public class WebParser extends RecursiveTask<Integer> {
         }
         String rootPattern = rootPatterns.deleteCharAt(rootPatterns.length() - 1).toString();
         root = Pattern.compile(rootPattern);
-        file = Pattern.compile("([\\.-](?i)(jpg|bmp|png|gif|pdf|doc|xls|ppt|jpeg|zip|tar|jar|gz|svg|" +
-                "pptx|docx|xlsx|(?:mp4|avi|wmv|flv|mov|mkv|webm|mpeg|mpg)(?=[\\.-]|$)))");
+        file = Pattern.compile("[\\.-](?i)((?:jpg|bmp|png|gif|pdf|doc|xls|ppt|jpeg|zip|tar|jar|gz|svg|" +
+                "pptx|docx|xlsx|mp4|avi|wmv|flv|mov|mkv|webm|mpeg|mpg|json|css)(?=[\\.-]|$))");
         pageElement = Pattern.compile("#");
         contactLink = Pattern.compile("(?i)(tel:|tg:|mailto:)");
     }
@@ -217,6 +226,9 @@ public class WebParser extends RecursiveTask<Integer> {
     public Map.Entry<Page, Boolean> addPage(String url) {
         boolean newPage = false;
         Map.Entry<String, Integer> html = getHtmlAndCollectLinks(url);
+        if (html == null) {
+            return null;
+        }
         int statusCode = html.getValue();
         String content = html.getKey();
 

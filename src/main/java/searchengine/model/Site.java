@@ -11,7 +11,6 @@ import java.util.Set;
 @AllArgsConstructor
 @Getter
 @Setter
-@ToString
 @Entity
 @Table(name = "site")
 public class Site {
@@ -43,10 +42,10 @@ public class Site {
     @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(50)")
     private String name;
 
-    @OneToMany(mappedBy = "site", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "site", fetch = FetchType.LAZY)
     private Set<Page> pages = new HashSet<>();
 
-    @OneToMany(mappedBy = "site", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "site", fetch = FetchType.LAZY)
     private Set<Lemma> lemmas = new HashSet<>();
 
     public void setStatus(StatusType status) {
@@ -65,5 +64,14 @@ public class Site {
     @Override
     public int hashCode() {
         return Objects.hash(getUrl(), getName());
+    }
+
+    @Override
+    public String toString() {
+        return "Site{" +
+                "id=" + id +
+                ", url='" + url + '\'' +
+                ", name='" + name + '\'' +
+                '}';
     }
 }

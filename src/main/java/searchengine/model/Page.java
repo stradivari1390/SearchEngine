@@ -15,7 +15,8 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "page", indexes = {
-        @Index(name = "idx_page_path_unq", columnList = "path", unique = true)
+        @Index(name = "idx_page_path_unq", columnList = "path", unique = true),
+        @Index(name = "idx_page_site_id", columnList = "site_id")
 })
 public class Page {
 

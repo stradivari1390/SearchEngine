@@ -7,32 +7,25 @@ import searchengine.dto.responses.Response;
 import searchengine.dto.search.Search;
 import searchengine.dto.responses.ErrorResponse;
 import searchengine.dto.responses.SearchResponse;
-import searchengine.dto.search.SearchEngine;
+import searchengine.services.searching.SearchEngine;
 import searchengine.dto.search.SearchResult;
 import searchengine.model.Site;
 import searchengine.repository.*;
-import searchengine.services.parsing.Lemmatisator;
+
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class SearchingService {
-    private final IndexRepository indexRepository;
-    private final PageRepository pageRepository;
+
     private final SiteRepository siteRepository;
-    private final LemmaRepository lemmaRepository;
-    private final Lemmatisator lemmatisator;
+    private final SearchEngine searchEngine;
 
     @Autowired
-    public SearchingService(IndexRepository indexRepository, PageRepository pageRepository,
-                            SiteRepository siteRepository, LemmaRepository lemmaRepository,
-                            Lemmatisator lemmatisator) {
-        this.indexRepository = indexRepository;
-        this.pageRepository = pageRepository;
+    public SearchingService(SiteRepository siteRepository, SearchEngine searchEngine) {
         this.siteRepository = siteRepository;
-        this.lemmaRepository = lemmaRepository;
-        this.lemmatisator = lemmatisator;
+        this.searchEngine = searchEngine;
     }
 
     public Response search(String query, String siteUrl, int offset, int limit) {
@@ -46,19 +39,16 @@ public class SearchingService {
                 return new ErrorResponse(false, "Указанная страница не найдена");
             }
         }
-        SearchEngine searchEngine = new SearchEngine(siteRepository, pageRepository,
-                lemmaRepository, indexRepository, lemmatisator);
-        Search search = searchEngine.search(query, site);
+
+        Search search = searchEngine.search(query, site, offset, limit);
 
         if (search.getCount() < offset) {
             return new ErrorResponse(false, "Некорректное значение смещения");
         }
         List<SearchResult> resultList = new ArrayList<>(search.getSearchResultSet());
-        if (offset + limit < search.getCount()) {
-            resultList = resultList.subList(offset, offset + limit);
-        } else {
-            resultList = resultList.subList(offset, search.getCount());
-        }
+
+        resultList = resultList.subList(offset, Math.min(offset + limit, search.getCount()));
+
         return new SearchResponse(search.isResult(), search.getCount(), resultList);
     }
 }
