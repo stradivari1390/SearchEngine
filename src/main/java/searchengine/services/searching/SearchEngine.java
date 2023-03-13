@@ -219,10 +219,12 @@ public final class SearchEngine {
         int initialLength = inputText.length();
         inputText.delete(maxIndex, inputText.length());
         if (maxIndex < initialLength) {
+            inputText.delete(inputText.lastIndexOf(" "), inputText.length());
             inputText.append("...");
         }
         inputText.delete(0, minIndex);
         if (minIndex > 0) {
+            inputText.delete(0, inputText.indexOf(" "));
             inputText.insert(0, "...");
         }
         return inputText;

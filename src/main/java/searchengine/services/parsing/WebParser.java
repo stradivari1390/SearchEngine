@@ -40,7 +40,7 @@ import searchengine.repository.PageRepository;
 @Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class WebParser extends RecursiveTask<Integer> {
     private static final AtomicBoolean stop = new AtomicBoolean(false);
-    private static final int THRESHOLD = 5;
+    private static final int THRESHOLD = 35;
     @Getter
     @Setter
     private Site site;
@@ -52,7 +52,7 @@ public class WebParser extends RecursiveTask<Integer> {
     private Lemmatisator lemmatisator;
     private Set<String> foundLinks;
     private static List<String> visitedLinks = new CopyOnWriteArrayList<>();
-    private List<String> toParseLinkList;
+    private final List<String> toParseLinkList;
     private static Pattern root;
     private static Pattern file;
     private static Pattern pageElement;
@@ -210,8 +210,8 @@ public class WebParser extends RecursiveTask<Integer> {
         }
         String rootPattern = rootPatterns.deleteCharAt(rootPatterns.length() - 1).toString();
         root = Pattern.compile(rootPattern);
-        file = Pattern.compile("[\\.-](?i)((?:jpg|bmp|png|gif|pdf|doc|xls|ppt|jpeg|zip|tar|jar|gz|svg|" +
-                "pptx|docx|xlsx|mp4|avi|wmv|flv|mov|mkv|webm|mpeg|mpg|json|css)(?=[\\.-]|$))");
+        file = Pattern.compile("[\\./-](?i)((?:jpg|bmp|png|gif|pdf|doc|xls|ppt|jpeg|zip|tar|jar|gz|svg|" +
+                "pptx|docx|xlsx|mp4|avi|wmv|flv|mov|mkv|webm|mpeg|mpg|json|css|txt|csv)(?=[\\./-]|$))");
         pageElement = Pattern.compile("#");
         contactLink = Pattern.compile("(?i)(tel:|tg:|mailto:)");
     }
