@@ -6,8 +6,8 @@ indexing-settings:
       name: Skillbox
     - url: https://baliforum.ru/
       name: Bali Forum
-#    - url: https://www.baeldung.com/
-#      name: Baeldung
+    - url: https://nikoartgallery.com/
+      name: Арт галерея Niko
 
 config:
   userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36
@@ -52,7 +52,7 @@ spring:
         default_schema: search_engine
         dialect: org.hibernate.dialect.PostgreSQL95Dialect
         jdbc:
-          batch_size: 1000
+          batch_size: 2500
           order_inserts: true
           order_deletes: true
           order_updates: true

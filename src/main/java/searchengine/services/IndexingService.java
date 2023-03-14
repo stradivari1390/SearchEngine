@@ -19,6 +19,7 @@ import searchengine.services.parsing.WebParser;
 import searchengine.dto.responses.IndexResponse;
 import searchengine.dto.responses.Response;
 
+import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,7 +28,7 @@ import java.util.regex.Pattern;
 
 @Service
 public class IndexingService {
-    private static final Logger logger = LogManager.getLogger(IndexingService.class);
+    public static final Logger logger = LogManager.getLogger(IndexingService.class);
     private static final String HTTP_S_WWW = "^(https?://)?(www\\.)?";
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
@@ -61,7 +62,6 @@ public class IndexingService {
         WebParser.clearVisitedLinks();
     }
 
-    @SneakyThrows
     public Response startIndexing() {
         if (indexing.compareAndSet(false, true)) {
             clearData();
@@ -83,9 +83,14 @@ public class IndexingService {
             ForkJoinPool forkJoinPool = new ForkJoinPool();
             forkJoinPool.execute(webParser);
             int count = webParser.join();
-            logger.info(webParser.getSite().getName() + ": " + count + " pages processed.");
+            String message = MessageFormat
+                    .format("{0}: {1} pages processed.", webParser.getSite().getName(), count);
+            logger.info(message);
             if (!WebParser.stopped()) {
                 saveSiteStatus(site, StatusType.INDEXED);
+            } else {
+                site.setLastError("Индексация прервана пользователем");
+                saveSiteStatus(site, StatusType.FAILED);
             }
         } catch (CancellationException e) {
             e.printStackTrace();
@@ -96,12 +101,6 @@ public class IndexingService {
 
     public Response stopIndexing() {
         if (indexing.compareAndSet(true, false)) {
-            siteRepository.findAllByStatus(StatusType.INDEXING)
-                    .forEach(s -> {
-                        s.setLastError("Индексация прервана пользователем");
-                        s.setStatus(StatusType.FAILED);
-                        siteRepository.save(s);
-                    });
             WebParser.stopCrawling();
             return new IndexResponse(true);
         } else {

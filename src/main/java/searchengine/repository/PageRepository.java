@@ -27,5 +27,7 @@ public interface PageRepository extends JpaRepository<Page, Long> {
 
     Page findByPath(String path);
 
+    Long countBySiteAndCode(Site site, int code);
+
     Long countBySite(Site site);
 }

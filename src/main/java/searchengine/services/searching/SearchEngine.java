@@ -41,7 +41,7 @@ public final class SearchEngine {
 
     public List<SearchResult> getResultList(String query, Site site) {
         List<SearchResult> results = new ArrayList<>();
-        int limitOfPresence = (int) (pageRepository.countBySite(site) * 0.8);
+        int limitOfPresence = (int) (pageRepository.countBySiteAndCode(site, 200) * 0.8);
         List<String> lemmas = lemmatisator.convertTextIntoLemmasList(query);
         List<Lemma> uniqueLemmas = findUniqueLemmas(lemmas, site, limitOfPresence);
         if (uniqueLemmas.isEmpty()) {

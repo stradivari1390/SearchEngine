@@ -4,7 +4,6 @@ import java.io.IOException;
 
 import java.util.*;
 
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -13,6 +12,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 
+import org.apache.tomcat.util.http.fileupload.impl.InvalidContentTypeException;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -35,12 +35,13 @@ import searchengine.model.Site;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
+import searchengine.util.ConcurrentHashSet;
 
 @Component
 @Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class WebParser extends RecursiveTask<Integer> {
     private static final AtomicBoolean stop = new AtomicBoolean(false);
-    private static final int THRESHOLD = 35;
+    private static final int THRESHOLD = 100;
     @Getter
     @Setter
     private Site site;
@@ -51,14 +52,13 @@ public class WebParser extends RecursiveTask<Integer> {
     private final Config config;
     private Lemmatisator lemmatisator;
     private Set<String> foundLinks;
-    private static List<String> visitedLinks = new CopyOnWriteArrayList<>();
+    private static ConcurrentHashSet<String> visitedLinks = new ConcurrentHashSet<>(10000, 0.75F, 16);
     private final List<String> toParseLinkList;
     private static Pattern root;
-    private static Pattern file;
     private static Pattern pageElement;
     private static Pattern contactLink;
     private int amount;
-    private final Object lock = new Object();
+    private final Object lemmaLock = new Object();
 
     @Autowired
     public WebParser(InitSiteList initSiteList, PageRepository pageRepository, LemmaRepository lemmaRepository,
@@ -83,18 +83,15 @@ public class WebParser extends RecursiveTask<Integer> {
             if (stop.get()) {
                 break;
             }
-            String cleanLink = cleanUrl(link);
-            synchronized (lock) {
-                if (visitedLinks.contains(cleanLink)) {
-                    continue;
-                }
-                visitedLinks.add(cleanLink);
+            if (visitedLinks.contains(link)) {
+                continue;
             }
+            visitedLinks.add(link);
             Map.Entry<String, Integer> htmlData = getHtmlAndCollectLinks(link);
             if (htmlData == null) {
                 continue;
             }
-            Page page = new Page(site, cleanLink, htmlData.getValue(), htmlData.getKey());
+            Page page = new Page(site, link, htmlData.getValue(), htmlData.getKey());
             pagesToSave.add(page);
             amount++;
         }
@@ -122,7 +119,7 @@ public class WebParser extends RecursiveTask<Integer> {
             }
         }
         pageRepository.saveAll(pagesToSave);
-        synchronized (lock) {
+        synchronized (lemmaLock) {
             lemmaRepository.saveAll(uniqueLemmas.values());
         }
         indexRepository.saveAll(indicesToSave);
@@ -130,7 +127,7 @@ public class WebParser extends RecursiveTask<Integer> {
 
     private Lemma addOrUpdateLemma(Map<String, Lemma> uniqueLemmas, String lemmaString) {
         Lemma lemma = uniqueLemmas.get(lemmaString);
-        synchronized (lock) {
+        synchronized (lemmaLock) {
             if (lemma == null) {
                 lemma = lemmaRepository.findLemmaByLemmaStringAndSite(lemmaString, site);
                 if (lemma != null) {
@@ -175,6 +172,10 @@ public class WebParser extends RecursiveTask<Integer> {
                     .userAgent(config.getUserAgent())
                     .referrer(config.getReferrer())
                     .execute();
+            String contentType = response.contentType();
+            if (contentType != null && (contentType.matches("^(?:application|image|audio|video)"))) {
+                throw new WebParserException("URL is a FILE", new InvalidContentTypeException());
+            }
             document = response.parse();
         } catch (IOException e) {
             throw new WebParserException(url + " -- Error occurred while trying to establish connection, " +
@@ -192,7 +193,7 @@ public class WebParser extends RecursiveTask<Integer> {
         }
         Elements linkElements = documentPageView.getKey().select("a[href], link[href]");
         for (Element linkElement : linkElements) {
-            String absUrl = linkElement.attr("abs:href");
+            String absUrl = cleanUrl(linkElement.attr("abs:href"));
             if (absUrl.length() > 0 && isValidLink(absUrl)) {
                 foundLinks.add(absUrl);
             }
@@ -210,15 +211,12 @@ public class WebParser extends RecursiveTask<Integer> {
         }
         String rootPattern = rootPatterns.deleteCharAt(rootPatterns.length() - 1).toString();
         root = Pattern.compile(rootPattern);
-        file = Pattern.compile("[\\./-](?i)((?:jpg|bmp|png|gif|pdf|doc|xls|ppt|jpeg|zip|tar|jar|gz|svg|" +
-                "pptx|docx|xlsx|mp4|avi|wmv|flv|mov|mkv|webm|mpeg|mpg|json|css|txt|csv)(?=[\\./-]|$))");
         pageElement = Pattern.compile("#");
         contactLink = Pattern.compile("(?i)(tel:|tg:|mailto:)");
     }
 
     public static boolean isValidLink(String link) {
-        return !file.matcher(link).find() &&
-                !pageElement.matcher(link).find() &&
+        return !pageElement.matcher(link).find() &&
                 !contactLink.matcher(link).find() &&
                 root.matcher(link.replaceAll("/w{3}\\.", "/")).lookingAt();
     }
